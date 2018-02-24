@@ -1,26 +1,32 @@
-// Platform-dependent terminal functions
-// Linux ncurses support only for now
+#ifndef OUTPUT_H
+#define OUTPUT_H
 
-#include <ncurses.h>
+// Platform-dependent functions
+
+#include <time.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <time.h>
+//#include <unistd.h>
+#include <ncurses.h>
 
 void PlayMusic(const char* file)
 {
-  char command[256];
-  strcpy(command, "aplay -q ");
-  strcat(command, file);
-  strcat(command, " >/dev/null 2>/dev/null &");
-  system(command);
+    char command[256]; command[0] = '\0';
+
+    strcat(command, "aplay -q ");
+    strcat(command, file);
+    strcat(command, " >/dev/null 2>/dev/null &");
+
+    system(command);
 }
 
 void SleepFor(int time_ms)
 {
-  timespec tm = {time_ms/1000, (time_ms%1000) * 1000000}, rem;
-  nanosleep(&tm, &rem);
+    timespec tm = {time_ms/1000, (time_ms%1000) * 1000000}, rem;
+    nanosleep(&tm, &rem);
 }
+
+// ============================================================
 
 void InitializeScreen()
 {
@@ -87,3 +93,6 @@ void WriteString(const char* str)
 {
   printw(str);
 }
+
+#endif
+
