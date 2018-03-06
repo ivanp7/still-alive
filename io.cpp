@@ -1,12 +1,10 @@
-#ifndef OUTPUT_H
-#define OUTPUT_H
-
 // Platform-dependent functions
 
-#include <time.h>
+#include "io.h"
+
 #include <stdlib.h>
+#include <time.h>
 #include <string.h>
-//#include <unistd.h>
 #include <ncurses.h>
 
 void PlayMusic(const char* file)
@@ -25,8 +23,6 @@ void SleepFor(int time_ms)
     timespec tm = {time_ms/1000, (time_ms%1000) * 1000000}, rem;
     nanosleep(&tm, &rem);
 }
-
-// ============================================================
 
 void InitializeScreen()
 {
@@ -94,5 +90,8 @@ void WriteString(const char* str)
   printw(str);
 }
 
-#endif
+int WaitForKey()
+{
+    return getch();
+}
 

@@ -1,13 +1,7 @@
-// Portal 1 Ending Credits remake
-// Written by Ivan Podmazov, 2011
-// Remade for Linux in 2016
-// Rewritten in 2018
+#include "io.h"
+#include "still-alive.h"
 
-// GLaDOS 3.11 - [Still Alive]
-
-/* #include <pthread.h> */
-
-#include "tsong.h"
+#include <string.h>
 
 #define TEXT_SIZE_X 35
 #define TEXT_SIZE_Y 23
@@ -15,7 +9,66 @@
 #define PICTURE_SIZE_X 41
 #define PICTURE_SIZE_Y 20
 
-void DrawPicture(const char* image, int X = -1, int Y = -1)
+void PutChar(char ch, size_t x, size_t y)
+{
+    MoveCursorTo(x, y);
+
+    char str[2] = {ch, '\0'};
+    WriteString(str);
+    RefreshScreen();
+}
+
+void PutText(const char* text, size_t x, size_t y, int number_of_chars = -1)
+{
+    size_t len = strlen(text);
+    if (number_of_chars < 0)
+        number_of_chars = len;
+
+    for (int i = 0; i < number_of_chars; i++) {
+        if (i < len)
+            PutChar(text[i], x+i, y);
+        else
+            PutChar(' ', x+i, y);
+    }
+}
+
+void TypeText(const char* text, size_t x, size_t y, size_t before_delay, size_t inter_delay,
+        size_t after_delay, char cursorCharacter = ' ')
+{
+    if (cursorCharacter != ' ')
+        PutChar(cursorCharacter, x, y);
+    SleepFor(before_delay);
+
+    MoveCursorTo(x, y);
+
+    size_t c = 0;
+    while (text[c] != '\0'){
+        if (cursorCharacter != ' ')
+            PutChar(cursorCharacter, x + c + 1, y);
+        PutChar(text[c], x + c, y);
+
+        if (text[c] != ' ')
+            SleepFor(inter_delay);
+
+        c++;
+    }
+
+    SleepFor(after_delay);
+
+    if (cursorCharacter != ' ')
+        PutChar(' ', x + c, y);
+}
+
+void ClearRectangle(size_t x, size_t y, size_t sx, size_t sy)
+{
+    for (size_t i = y; i < y + sy; i++){
+        for (size_t j = x; j < x + sx; j++)
+            PutChar(' ', j, i);
+    }
+}
+
+///////////////////////////////////////////////////////////
+void DrawPicture(const char* image, int X, int Y)
 {
     size_t screenSizeX = GetScreenSizeX();
     size_t screenSizeY = GetScreenSizeY();
@@ -260,11 +313,9 @@ void DrawPicture(const char* image, int X = -1, int Y = -1)
     }
 }
 
-#define DEFAULT_INTER_DELAY 100
-
 size_t currentCursorYPosition = 1;
 
-void WriteLine(const char* text, size_t after_delay, size_t inter_delay = DEFAULT_INTER_DELAY)
+void WriteLine(const char* text, size_t after_delay, size_t inter_delay)
 {
     TypeText(text, 1, currentCursorYPosition, 0, inter_delay, after_delay, ' ');
     currentCursorYPosition++;
@@ -462,16 +513,5 @@ int Song()
     SleepFor(22000);
 
     return 0;
-}
-
-int main()
-{
-  InitializeScreen();
-
-  int result = Song();
-
-  ReleaseScreen();
-
-  return result;
 }
 
