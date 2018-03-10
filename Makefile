@@ -4,7 +4,7 @@ LDIR = .
 
 CC     = gcc
 CFLAGS = -I$(IDIR)
-LIBS   = -lncurses
+LIBS   = -static -lncursesw
 
 _DEPS = io.h still-alive.h
 DEPS = $(patsubst %,$(IDIR)/%,$(_DEPS))
