@@ -5,6 +5,8 @@
 
 // GLaDOS 3.11 - [Still Alive]
 
+#pragma once
+
 #include <stddef.h>
 
 #define DEFAULT_INTER_DELAY 100

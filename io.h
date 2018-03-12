@@ -1,5 +1,4 @@
-#ifndef IO_H
-#define IO_H
+#pragma once
 
 // Platform-dependent functions
 
@@ -28,6 +27,4 @@ int GetScreenSizeY();
 void MoveCursorTo(int x, int y);
 void WriteString(const char* str);
 int WaitForKey();
-
-#endif
 
