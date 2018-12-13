@@ -5,8 +5,8 @@ ODIR = .
 LDIR = .
 
 CC     = gcc
-CFLAGS = -I$(IDIR) -Wall
-LIBS   = -l:libncursesw.a -ldl
+CFLAGS = -I$(IDIR) -Wall `pkg-config --cflags ncurses`
+LIBS   = `pkg-config --libs ncurses` -ldl
 
 _DEPS = io.h still-alive.h
 DEPS = $(patsubst %,$(IDIR)/%,$(_DEPS))
