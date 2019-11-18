@@ -4,7 +4,7 @@ Dependencies:
 -----------------
 
 * ncurses shared library
-* aplay utility from the ALSA tools
+* mpv player
 
 How to compile:
 -----------------

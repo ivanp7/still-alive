@@ -11,9 +11,9 @@ void PlayMusic(const char* file)
 {
     char command[256]; command[0] = '\0';
 
-    strcat(command, "aplay -q ");
+    strcat(command, "mpv --no-terminal ");
     strcat(command, file);
-    strcat(command, " >/dev/null 2>/dev/null &");
+    strcat(command, " &");
 
     system(command);
 }
