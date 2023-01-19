@@ -395,14 +395,14 @@ int Song()
     WriteLine("It's hard to overstate", 0);
     WriteLine("my satisfaction.", 3700);
     DrawPicture("aperture");
-    WriteLine("Aperture Science", 2200);
+    WriteLine("Aperture Science,", 2200);
     WriteLine("We do what we must", 0);
     WriteLine("because we can.", 2700);
     WriteLine("For the good of all of us.", 1600, 90);
     DrawPicture("radioactive");
     WriteLine("Except the ones who are dead.", 420, 70);
     WriteLine("", 100);
-    WriteLine("But there's no sence crying", 0, 90);
+    WriteLine("But there's no sense crying", 0, 90);
     WriteLine("over every mistake.", 0, 90);
     WriteLine("You just keep on trying", 0, 90);
     WriteLine("till you run out of cake.", 200, 90);
@@ -425,7 +425,7 @@ int Song()
     WriteLine("Even though you broke my heart.", 1100);
     WriteLine("And killed me.", 2200);
     DrawPicture("explosion");
-    WriteLine("And tore me into pieces.", 2100);
+    WriteLine("And tore me to pieces.", 2100);
     DrawPicture("fire");
     WriteLine("And threw every piece into a fire.", 2200);
     WriteLine("As they burned it hurt because", 500);
@@ -436,7 +436,7 @@ int Song()
     WriteLine("And we're out of beta.", 0, 90);
     WriteLine("We're releasing on time.", 200, 90);
     DrawPicture("explosion");
-    WriteLine("So I'm GLaD. I got burned.", 0, 90);
+    WriteLine("So I'm GLaD I got burned.", 0, 90);
     DrawPicture("atom");
     WriteLine("Think of all the things we learned", 0, 90);
     DrawPicture("aperture");
@@ -455,7 +455,7 @@ int Song()
     WriteLine("to help you.", 2300);
     DrawPicture("blackmesa");
     WriteLine("Maybe Black Mesa...", 2000, 120);
-    WriteLine("THAT WAS A JOKE. FAT CHANCE.", 2000, 130);
+    WriteLine("THAT WAS A JOKE. *Fake Laugh* FAT CHANCE.", 2000, 130);
     DrawPicture("cake");
     WriteLine("Anyway, this cake is great.", 1000);
     WriteLine("It's so delicious and moist.", 100, 90);
