@@ -6,7 +6,7 @@
 
 ## Full video:
 
-![Video](video.mp4)
+![Video](video.webm)
 
 ## Dependencies:
 
