@@ -1,4 +1,12 @@
-# Remake of the Portal game end credits ('Still Alive' song)
+# Remake of the Portal game credits ('Still Alive' song)
+
+## Screenshot:
+
+![Sample screenshot](screenshot.png)
+
+## Full video:
+
+![Video](video.mp4)
 
 ## Dependencies:
 
@@ -32,12 +40,4 @@
 ```
 $ ./station-app ./still-alive.station
 ```
-
-## Sample screenshot:
-
-![Sample screenshot](screenshot.png)
-
-## Video:
-
-![Video](video.mp4)
 
