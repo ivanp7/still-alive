@@ -1,29 +1,35 @@
-TARGET_NAME = still-alive
+STATION_PATH = ../station
 
-IDIR = .
-ODIR = .
-LDIR = .
+FONT = font.psf
+SONG = song.wav
 
-CC     = gcc
-CFLAGS = -I$(IDIR) -Wall `pkg-config --cflags ncurses`
-LIBS   = `pkg-config --libs ncurses` -ldl
+HEADER = still-alive.h
+SOURCE = still-alive.c
 
-_DEPS = io.h still-alive.h
-DEPS = $(patsubst %,$(IDIR)/%,$(_DEPS))
+OUT_PLUGIN = still-alive.station
 
-_OBJ = main.o still-alive.o io.o
-OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
+CFLAGS = -march=native -pipe -std=c17 -Wall -Wextra -Wpedantic -pedantic-errors \
+		 -Wmissing-prototypes -Wstrict-prototypes -Wold-style-definition \
+		 $(shell pkg-config --with-path "${STATION_PATH}" --cflags station) -fPIC -O2 # -g3 -ggdb
+LFLAGS = $(shell pkg-config --with-path "${STATION_PATH}" --libs station) -fPIC -shared -rdynamic
 
-$(ODIR)/%.o: %.c $(DEPS)
-	$(CC) -c -o $@ $< $(CFLAGS)
+OBJCOPY = objcopy
 
-$(TARGET_NAME): $(OBJ)
-	$(CC) -o $@ $^ $(CFLAGS) $(LIBS)
 
-.PHONY: clean clean-all
+${OUT_PLUGIN}: ${SOURCE}.o ${FONT}.o ${SONG}.o
+	${CC} -o ${OUT_PLUGIN} ${SOURCE}.o ${FONT}.o ${SONG}.o ${CFLAGS} ${LFLAGS} -Wl,-z noexecstack
+
+${SOURCE}.o: ${HEADER} ${SOURCE}
+	${CC} -c -o ${SOURCE}.o ${SOURCE} ${CFLAGS}
+
+${FONT}.o:
+	${OBJCOPY} -I binary -O elf64-x86-64 -B i386:x86-64 --rename-section ".data"=".rodata" ${FONT} ${FONT}.o
+
+${SONG}.o:
+	${OBJCOPY} -I binary -O elf64-x86-64 -B i386:x86-64 --rename-section ".data"=".rodata" ${SONG} ${SONG}.o
+
 clean:
-	rm -f $(ODIR)/*.o
+	rm ./*.o "./${OUT_PLUGIN}"
 
-clean-all: clean
-	rm -f $(TARGET_NAME)
+.phony: clean
 
