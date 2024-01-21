@@ -2,11 +2,11 @@
 
 ## Screenshot:
 
-![Sample screenshot](screenshot.png)
+![Screenshot](screenshot.png)
 
 ## Full video:
 
-![Video](video.webm)
+![Video](https://raw.githubusercontent.com/ivanp7/still-alive/master/video.webm)
 
 ## Dependencies:
 
