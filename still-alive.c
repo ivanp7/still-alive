@@ -31,39 +31,42 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 
-extern const unsigned char _binary_font_psf_start[];
-extern const unsigned char _binary_font_psf_end;
+extern const unsigned char _binary_font_psf_start[]; // contents of 'font.psf' file (text font)
+extern const unsigned char _binary_font_psf_end; // first address beyond 'font.psf' contents
 
-extern const unsigned char _binary_song_wav_start[];
-extern const unsigned char _binary_song_wav_end;
+extern const unsigned char _binary_song_wav_start[]; // contents of 'song.wav' file (music)
+extern const unsigned char _binary_song_wav_end; // first address beyond 'song.wav' contents
 
 ///////////////////////////////////////////////////////////////////////////////
 
 struct plugin_resources {
-    station_parallel_processing_context_t *parallel_processing_context;
+    station_parallel_processing_context_t *parallel_processing_context; // for multithreaded rendering
 
-    SDL_Event event;
-    station_sdl_window_context_t sdl_window;
+    SDL_Event event; // for window events
+    station_sdl_window_context_t sdl_window; // window context
 
-    station_font_psf2_t *font;
+    station_font_psf2_t *font; // font context
 
+    // audio
     SDL_AudioSpec wav_spec;
     uint8_t *wav_buffer;
     uint32_t wav_length;
     SDL_AudioDeviceID snd_device_id;
 
-    struct timespec start_time;
+    char screen[SCREEN_SIZE_Y][SCREEN_SIZE_X]; // screen characters
+    int cursor_x, cursor_y; // cursor coordinates
 
-    char screen[SCREEN_SIZE_Y][SCREEN_SIZE_X];
-    int screen_x, screen_y;
-
+    // state of song processing
     int song_line_idx;
     int song_line_char_idx;
     bool song_line_event_processed;
+
+    struct timespec start_time; // time of execution start
 };
 
 ///////////////////////////////////////////////////////////////////////////////
 
+// Get current time
 static struct timespec get_time(void)
 {
     struct timespec ts;
@@ -71,6 +74,7 @@ static struct timespec get_time(void)
     return ts;
 }
 
+// Get number of milliseconds elapsed from start of execution
 static int elapsed_ms(struct timespec start)
 {
     struct timespec current = get_time();
@@ -81,20 +85,22 @@ static int elapsed_ms(struct timespec start)
 
 ///////////////////////////////////////////////////////////////////////////////
 
-static STATION_SFUNC(sfunc_init);
+static STATION_SFUNC(sfunc_init); // initialize resources
 
-static STATION_SFUNC(sfunc_song);
+static STATION_SFUNC(sfunc_song); // process the song
 
-static STATION_PFUNC(pfunc_draw_background);
-static STATION_PFUNC(pfunc_draw_characters);
-static STATION_SFUNC(sfunc_loop);
+static STATION_PFUNC(pfunc_draw_background); // draw background pixels
+static STATION_PFUNC(pfunc_draw_foreground); // draw foreground pixels (characters)
+static STATION_SFUNC(sfunc_loop); // main loop
 
 ///////////////////////////////////////////////////////////////////////////////
 
-static STATION_SFUNC(sfunc_init)
+// Function to initialize the plugin resources
+static STATION_SFUNC(sfunc_init) // implicit arguments: state, fsm_data
 {
     struct plugin_resources *resources = fsm_data;
 
+    // Initialize the screen
     for (int y = 0; y < SCREEN_SIZE_Y; y++)
         for (int x = 0; x < SCREEN_SIZE_X; x++)
         {
@@ -109,74 +115,89 @@ static STATION_SFUNC(sfunc_init)
                 resources->screen[y][x] = ' ';
         }
 
-    int comment_pos_x = SCREEN_SIZE_X - PICTURE_SIZE_X;
-    int comment_pos_y = (SCREEN_SIZE_Y - PICTURE_SIZE_Y) / 2 - 1;
+    resources->cursor_x = 0;
+    resources->cursor_y = 0;
 
-    memcpy(&resources->screen[comment_pos_y + 0][comment_pos_x], COMMENT0, strlen(COMMENT0));
-    memcpy(&resources->screen[comment_pos_y + 1][comment_pos_x], COMMENT1, strlen(COMMENT1));
-    memcpy(&resources->screen[comment_pos_y + 2][comment_pos_x], COMMENT2, strlen(COMMENT2));
+    // Draw comments
+    {
+        int comment_pos_x = SCREEN_SIZE_X - PICTURE_SIZE_X;
+        int comment_pos_y = (SCREEN_SIZE_Y - PICTURE_SIZE_Y) / 2 - 1;
 
-    resources->screen_x = 0;
-    resources->screen_y = 0;
+        memcpy(&resources->screen[comment_pos_y + 0][comment_pos_x], COMMENT0, strlen(COMMENT0));
+        memcpy(&resources->screen[comment_pos_y + 1][comment_pos_x], COMMENT1, strlen(COMMENT1));
+        memcpy(&resources->screen[comment_pos_y + 2][comment_pos_x], COMMENT2, strlen(COMMENT2));
+    }
 
+    // Initialize song state
     resources->song_line_idx = 0;
     resources->song_line_char_idx = 0;
     resources->song_line_event_processed = false;
 
+    // Get execution start time
     resources->start_time = get_time();
 
+    // Proceed to the main loop
     state->sfunc = sfunc_loop;
 }
 
-static STATION_SFUNC(sfunc_song)
+// Function to process the song
+static STATION_SFUNC(sfunc_song) // implicit arguments: state, fsm_data
 {
     struct plugin_resources *resources = fsm_data;
 
+    // Get current elapsed time
     int elapsed = elapsed_ms(resources->start_time);
+
+    // Get pointer to the current song line
     const struct song_line *current_line = &song[resources->song_line_idx];
 
-    resources->screen[1 + resources->screen_y][1 + resources->screen_x] =
+    // Draw cursor
+    resources->screen[1 + resources->cursor_y][1 + resources->cursor_x] =
         ((elapsed / CURSOR_FLICKERING_PERIOD) % 2) ? '_' : ' '; // cursor
 
+    // Check if the song ended
     if (current_line->text == NULL)
     {
         if (elapsed < current_line->end)
-            state->sfunc = sfunc_loop;
+            state->sfunc = sfunc_loop; // wait until end time
         else
-            state->sfunc = NULL;
+            state->sfunc = NULL; // exit now
 
         return;
     }
 
+    // Get pointer to the next song line
     const struct song_line *next_line = &song[resources->song_line_idx + 1];
 
+    // Check if song event of the current song line was processed already
     if (!resources->song_line_event_processed)
     {
-        int pposx = SCREEN_SIZE_X - PICTURE_SIZE_X;
-        int pposy = SCREEN_SIZE_Y - PICTURE_SIZE_Y;
-        int picidx;
+        int pposx = SCREEN_SIZE_X - PICTURE_SIZE_X; // picture coordinate X
+        int pposy = SCREEN_SIZE_Y - PICTURE_SIZE_Y; // picture coordinate Y
+        int picidx; // picture index
 
         switch (current_line->event)
         {
-            case EVENT_NONE:
+            case EVENT_NONE: // do nothing
                 break;
 
-            case EVENT_START_MUSIC:
+            case EVENT_START_MUSIC: // start playing the WAV
                 SDL_PauseAudioDevice(resources->snd_device_id, 0);
                 break;
 
-            case EVENT_CLEAR_SCREEN:
-                resources->screen[1 + resources->screen_y][1 + resources->screen_x] = ' ';
+            case EVENT_CLEAR_SCREEN: // clear the text area
+                resources->screen[1 + resources->cursor_y][1 + resources->cursor_x] = ' ';
 
                 for (int y = 0; y < TEXT_SIZE_Y; y++)
                     for (int x = 0; x < TEXT_SIZE_X; x++)
                         resources->screen[1 + y][1 + x] = ' ';
 
-                resources->screen_x = 0;
-                resources->screen_y = 0;
+                // Reset the cursor to the top-left corner
+                resources->cursor_x = 0;
+                resources->cursor_y = 0;
                 break;
 
-            default:
+            default: // draw a picture
                 picidx = current_line->event - EVENT_DRAW_PICTURE;
 
                 for (int y = 0; y < PICTURE_SIZE_Y; y++)
@@ -188,9 +209,10 @@ static STATION_SFUNC(sfunc_song)
         resources->song_line_event_processed = true;
     }
 
-    int line_length = strlen(current_line->text);
-    int line_visible_chars = line_length;
+    int line_length = strlen(current_line->text); // number of character in the current line
+    int line_visible_chars = line_length; // number of characters visible at the current time
 
+    // Update number of visible characters if needed
     if ((elapsed < current_line->end) && (current_line->start < current_line->end))
     {
         float line_progress = 1.0f * (elapsed - current_line->start) /
@@ -198,28 +220,35 @@ static STATION_SFUNC(sfunc_song)
         line_visible_chars = line_progress * line_length;
     }
 
+    // Draw the new visible characters
     for (int x = resources->song_line_char_idx; x < line_visible_chars; x++)
     {
         char current_chr = current_line->text[x];
 
         if (current_chr != '\n')
         {
-            resources->screen[1 + resources->screen_y][1 + resources->screen_x + 1] =
-                resources->screen[1 + resources->screen_y][1 + resources->screen_x];
-            resources->screen[1 + resources->screen_y][1 + resources->screen_x] = current_chr;
-            resources->screen_x++;
+            // Move cursor to the right
+            resources->screen[1 + resources->cursor_y][1 + resources->cursor_x + 1] =
+                resources->screen[1 + resources->cursor_y][1 + resources->cursor_x];
+            resources->cursor_x++;
+
+            // Draw a character
+            resources->screen[1 + resources->cursor_y][1 + resources->cursor_x - 1] = current_chr;
         }
         else
         {
-            resources->screen[1 + resources->screen_y][1 + resources->screen_x] = ' ';
-            resources->screen_x = 0;
-            resources->screen_y++;
+            // Hide cursor and move to the next line
+            resources->screen[1 + resources->cursor_y][1 + resources->cursor_x] = ' ';
+            resources->cursor_x = 0;
+            resources->cursor_y++;
         }
     }
 
+    // Update character counter
     if (resources->song_line_char_idx < line_visible_chars)
         resources->song_line_char_idx = line_visible_chars;
 
+    // Move to the next song line if the current is fully processed
     if ((line_visible_chars == line_length) && (elapsed >= next_line->start))
     {
         resources->song_line_idx++;
@@ -227,6 +256,7 @@ static STATION_SFUNC(sfunc_song)
         resources->song_line_event_processed = false;
     }
 
+    // Proceed to the main loop
     state->sfunc = sfunc_loop;
 }
 
@@ -238,27 +268,33 @@ static STATION_PFUNC(pfunc_draw_background)
 
     struct plugin_resources *resources = data;
 
+    // Compute coordinates of the current pixel
     station_task_idx_t y = task_idx / resources->sdl_window.texture.width;
 
+    // Draw the flickering background
     uint32_t pixel = BG_COLOR0;
     if ((y - (elapsed_ms(resources->start_time)) / BG_FLICKERING_PERIOD) % BG_FLICKERING_MOD == 0)
         pixel = BG_COLOR1;
 
+    // Update the texture
     resources->sdl_window.texture.lock.pixels[task_idx] = pixel;
 }
 
-static STATION_PFUNC(pfunc_draw_characters)
+static STATION_PFUNC(pfunc_draw_foreground)
 {
     (void) thread_idx;
 
     struct plugin_resources *resources = data;
 
+    // Compute coordinates of the current character
     station_task_idx_t x = task_idx % SCREEN_SIZE_X;
     station_task_idx_t y = task_idx / SCREEN_SIZE_X;
 
+    // Extract the glyph of the current character
     char str[2] = {resources->screen[y][x], '\0'};
     const unsigned char *glyph = station_font_psf2_glyph(str, 1, NULL, resources->font);
 
+    // Draw the glyph
     station_sdl_window_texture_draw_glyph(&resources->sdl_window,
             x * resources->font->header->width, y * resources->font->header->height,
             true, false, TEXT_COLOR, 0,
@@ -266,18 +302,22 @@ static STATION_PFUNC(pfunc_draw_characters)
             0, 0, resources->font->header->width, resources->font->header->height);
 }
 
+// Main loop
 static STATION_SFUNC(sfunc_loop)
 {
     struct plugin_resources *resources = fsm_data;
 
     SDL_PollEvent(&resources->event);
 
+    // Exit when the window is closed or <Escape> is pressed
     if ((resources->event.type == SDL_QUIT) ||
             ((resources->event.type == SDL_KEYDOWN) &&
              (resources->event.key.keysym.sym == SDLK_ESCAPE)))
         exit(0);
 
+    // Update the window texture
     {
+        // step 1: lock the texture
         if (station_sdl_window_lock_texture(&resources->sdl_window,
                     true, 0, 0, 0, 0) != 0)
         {
@@ -285,14 +325,17 @@ static STATION_SFUNC(sfunc_loop)
             exit(1);
         }
 
+        // step 2: draw background (pixels) using multiple threads
         station_parallel_processing_execute(resources->parallel_processing_context,
                 pfunc_draw_background, resources,
                 resources->sdl_window.texture.width * resources->sdl_window.texture.height, 0);
 
+        // step 3: draw foreground (characters) using multiple threads
         station_parallel_processing_execute(resources->parallel_processing_context,
-                pfunc_draw_characters, resources,
+                pfunc_draw_foreground, resources,
                 SCREEN_SIZE_X * SCREEN_SIZE_Y, 0);
 
+        // step 4: unlock the texture and render
         if (station_sdl_window_unlock_texture_and_render(&resources->sdl_window) != 0)
         {
             printf("station_sdl_window_unlock_texture_and_render() failure\n");
@@ -300,21 +343,23 @@ static STATION_SFUNC(sfunc_loop)
         }
     }
 
-    SDL_Delay(10); // don't overheat the computer
+    SDL_Delay(10); // don't overheat the processor
 
     state->sfunc = sfunc_song;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
+// Plugin help function
 static STATION_PLUGIN_HELP_FUNC(plugin_help)
 {
     (void) argc;
     (void) argv;
 
-    printf("usage: still-alive [no arguments]\n");
+    printf("usage: station-app still-alive.station\n");
 }
 
+// Plugin configuration function
 static STATION_PLUGIN_CONF_FUNC(plugin_conf)
 {
     (void) argc;
@@ -326,6 +371,7 @@ static STATION_PLUGIN_CONF_FUNC(plugin_conf)
 #endif
 }
 
+// Plugin initialization function
 static STATION_PLUGIN_INIT_FUNC(plugin_init)
 {
     int step = 0;
@@ -346,29 +392,14 @@ static STATION_PLUGIN_INIT_FUNC(plugin_init)
 
     outputs->plugin_resources = resources;
 
-    outputs->fsm_initial_state.sfunc = sfunc_init;
+    outputs->fsm_initial_state.sfunc = sfunc_init; // begin from resource initialization state function
     outputs->fsm_data = resources;
 
     resources->parallel_processing_context = inputs->parallel_processing_context;
 
-    // Load the font
-    {
-        station_buffer_t font_buffer = {
-            .num_bytes = &_binary_font_psf_end - _binary_font_psf_start,
-            .bytes = (void*)_binary_font_psf_start,
-        };
-
-        resources->font = station_load_font_psf2_from_buffer(&font_buffer);
-        if (resources->font == NULL)
-        {
-            printf("Couldn't load built-in font\n");
-            goto failure;
-        }
-        step = 2;
-    }
-
     // Load the song
     {
+        // Load the WAV from memory
         if (SDL_LoadWAV_RW(SDL_RWFromConstMem(_binary_song_wav_start,
                         &_binary_song_wav_end - _binary_song_wav_start),
                     1, &resources->wav_spec, &resources->wav_buffer, &resources->wav_length) == NULL)
@@ -376,21 +407,41 @@ static STATION_PLUGIN_INIT_FUNC(plugin_init)
             printf("Couldn't load built-in .wav file\n");
             goto failure;
         }
-        step = 3;
+        step = 2;
 
+        // Open an audio device
         resources->snd_device_id = SDL_OpenAudioDevice(NULL, 0, &resources->wav_spec, NULL, 0);
         if (resources->snd_device_id == 0)
         {
             printf("Couldn't open audio device\n");
             goto failure;
         }
-        step = 4;
+        step = 3;
 
+        // Queue the song to play
         if (SDL_QueueAudio(resources->snd_device_id, resources->wav_buffer, resources->wav_length) < 0)
         {
             printf("Couldn't queue WAV to play\n");
             exit(1);
         }
+    }
+
+    // Load the font
+    {
+        // Create the buffer
+        station_buffer_t font_buffer = {
+            .num_bytes = &_binary_font_psf_end - _binary_font_psf_start,
+            .bytes = (void*)_binary_font_psf_start,
+        };
+
+        // Load the font from the buffer
+        resources->font = station_load_font_psf2_from_buffer(&font_buffer);
+        if (resources->font == NULL)
+        {
+            printf("Couldn't load built-in font\n");
+            goto failure;
+        }
+        step = 4;
     }
 
     // Create the window
@@ -413,20 +464,22 @@ static STATION_PLUGIN_INIT_FUNC(plugin_init)
         step = 5;
     }
 
+    // In case of success, proceed
     return;
 
+    // In case of failure, release created resources and exit with error
 failure:
     if (step >= 5)
         station_sdl_destroy_window_context(&resources->sdl_window);
 
     if (step >= 4)
-        SDL_CloseAudioDevice(resources->snd_device_id);
+        station_unload_font_psf2(resources->font);
 
     if (step >= 3)
-        SDL_FreeWAV(resources->wav_buffer);
+        SDL_CloseAudioDevice(resources->snd_device_id);
 
     if (step >= 2)
-        station_unload_font_psf2(resources->font);
+        SDL_FreeWAV(resources->wav_buffer);
 
     if (step >= 1)
         free(resources);
@@ -434,6 +487,7 @@ failure:
     exit(1);
 }
 
+// Plugin finalization function
 static STATION_PLUGIN_FINAL_FUNC(plugin_final)
 {
     (void) quick;
@@ -441,13 +495,17 @@ static STATION_PLUGIN_FINAL_FUNC(plugin_final)
     struct plugin_resources *resources = plugin_resources;
 
     station_sdl_destroy_window_context(&resources->sdl_window);
+
+    station_unload_font_psf2(resources->font);
+
     SDL_CloseAudioDevice(resources->snd_device_id);
     SDL_FreeWAV(resources->wav_buffer);
-    station_unload_font_psf2(resources->font);
+
     free(resources);
 
-    return 0;
+    return 0; // success
 }
 
+// Define the plugin
 STATION_PLUGIN("Portal credits song, \"Still Alive\"", plugin_help, plugin_conf, plugin_init, plugin_final)
 

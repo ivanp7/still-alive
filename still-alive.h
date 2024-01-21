@@ -8,24 +8,31 @@
 
 #pragma once
 
+// Text area size in characters
 #define TEXT_SIZE_X (35 + 1) // minimum + extra
 #define TEXT_SIZE_Y (23 + 5) // minimum + extra
 
+// Picture area size in characters
 #define PICTURE_SIZE_X 41
 #define PICTURE_SIZE_Y 20
 
+// Whole screen size in characters
 #define SCREEN_SIZE_X (1 + TEXT_SIZE_X + 1 + PICTURE_SIZE_X + 1)
 #define SCREEN_SIZE_Y (1 + TEXT_SIZE_Y + 1)
 
-#define WINDOW_SCALE 2 // screen pixels per texture pixel
+// Window parameters
+#define WINDOW_SCALE 2 // window pixels per texture pixel
 
+// Colors
 #define TEXT_COLOR 0xFF0066AA
-#define BG_COLOR0 0xFF001122
-#define BG_COLOR1 0xFF001929
+#define BG_COLOR0 0xFF001122 // main background color
+#define BG_COLOR1 0xFF001929 // color of background flickering
 
+// Background flickering parameters
 #define BG_FLICKERING_MOD 3
 #define BG_FLICKERING_PERIOD 10
 
+// Cursor flickering parameters
 #define CURSOR_FLICKERING_PERIOD 250
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -119,9 +126,9 @@ static const struct song_line song[] = {
     {.text = " Black Mesa",                             .start = 128200,    .end = 130000,  .event = EVENT_DRAW_BLACKMESA},
     {.text = "...\n",                                   .start = 130000,    .end = 132000},
     {.text = "THAT WAS A JOKE.",                        .start = 132200,    .end = 133800},
-    {.text = " FAT CHANCE.\n",                          .start = 134700,    .end = 136000},
+    {.text = " FAT CHANCE.\n",                          .start = 134600,    .end = 136000},
     {.text = "Anyway,",                                 .start = 137000,    .end = 138800},
-    {.text = " this cake is great.\n",                  .start = 139000,    .end = 140700,  .event = EVENT_DRAW_CAKE},
+    {.text = " this cake is great.\n",                  .start = 138900,    .end = 140700,  .event = EVENT_DRAW_CAKE},
     {.text = "It's so delicious and moist.\n",          .start = 140700,    .end = 142000},
     {.text = "Look at me still talking\n",              .start = 143000,    .end = 144800,  .event = EVENT_DRAW_GLADOS},
     {.text = "when there's Science to do.\n",           .start = 144800,    .end = 146900,  .event = EVENT_DRAW_RADIOACTIVE},
@@ -148,9 +155,9 @@ static const struct song_line song[] = {
     {.text = "",                                        .start = 180000,    .end = 185000},
 
     {.text = "\n\n\n\n\n\n\n\n\n\n\n\n\n\n    ",        .start = 185000,    .end = 185000,  .event = EVENT_CLEAR_SCREEN},
-    {.text = "Portal is an amazing game!!!",            .start = 185000,    .end = 190000,  .event = EVENT_DRAW_HEART},
+    {.text = "Portal is an amazing game!!!",            .start = 185000,    .end = 187000,  .event = EVENT_DRAW_HEART},
 
-    {.text = 0,                                         .start = 190000,    .end = 200000},
+    {.text = 0,                                         .start = 187000,    .end = 190000},
 };
 
 ///////////////////////////////////////////////////////////////////////////////
