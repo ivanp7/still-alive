@@ -18,7 +18,6 @@
 * gcc-compatible compiler (like clang)
 * objcopy
 * pkg-config
-* ninja
 * make
 
 ## How to build:
