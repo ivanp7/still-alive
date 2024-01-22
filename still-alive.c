@@ -225,7 +225,14 @@ static STATION_SFUNC(sfunc_song) // implicit arguments: state, fsm_data
     {
         char current_chr = current_line->text[x];
 
-        if (current_chr != '\n')
+        if (current_chr == '\n')
+        {
+            // Hide cursor and move to the next line
+            resources->screen[1 + resources->cursor_y][1 + resources->cursor_x] = ' ';
+            resources->cursor_x = 0;
+            resources->cursor_y++;
+        }
+        else
         {
             // Move cursor to the right
             resources->screen[1 + resources->cursor_y][1 + resources->cursor_x + 1] =
@@ -234,13 +241,6 @@ static STATION_SFUNC(sfunc_song) // implicit arguments: state, fsm_data
 
             // Draw a character
             resources->screen[1 + resources->cursor_y][1 + resources->cursor_x - 1] = current_chr;
-        }
-        else
-        {
-            // Hide cursor and move to the next line
-            resources->screen[1 + resources->cursor_y][1 + resources->cursor_x] = ' ';
-            resources->cursor_x = 0;
-            resources->cursor_y++;
         }
     }
 
@@ -262,7 +262,8 @@ static STATION_SFUNC(sfunc_song) // implicit arguments: state, fsm_data
 
 ///////////////////////////////////////////////////////////////////////////////
 
-static STATION_PFUNC(pfunc_draw_background)
+// Function to draw background pixels
+static STATION_PFUNC(pfunc_draw_background) // implicit arguments: data, task_idx, thread_idx
 {
     (void) thread_idx;
 
@@ -280,7 +281,8 @@ static STATION_PFUNC(pfunc_draw_background)
     resources->sdl_window.texture.lock.pixels[task_idx] = pixel;
 }
 
-static STATION_PFUNC(pfunc_draw_foreground)
+// Function to draw foreground characters
+static STATION_PFUNC(pfunc_draw_foreground) // implicit arguments: data, task_idx, thread_idx
 {
     (void) thread_idx;
 
@@ -303,17 +305,19 @@ static STATION_PFUNC(pfunc_draw_foreground)
 }
 
 // Main loop
-static STATION_SFUNC(sfunc_loop)
+static STATION_SFUNC(sfunc_loop) // implicit arguments: state, fsm_data
 {
     struct plugin_resources *resources = fsm_data;
 
-    SDL_PollEvent(&resources->event);
-
-    // Exit when the window is closed or <Escape> is pressed
-    if ((resources->event.type == SDL_QUIT) ||
-            ((resources->event.type == SDL_KEYDOWN) &&
-             (resources->event.key.keysym.sym == SDLK_ESCAPE)))
-        exit(0);
+    // Poll window events
+    while (SDL_PollEvent(&resources->event))
+    {
+        // Exit when the window is closed or <Escape> is pressed
+        if ((resources->event.type == SDL_QUIT) ||
+                ((resources->event.type == SDL_KEYDOWN) &&
+                 (resources->event.key.keysym.sym == SDLK_ESCAPE)))
+            exit(0);
+    }
 
     // Update the window texture
     {
@@ -351,7 +355,7 @@ static STATION_SFUNC(sfunc_loop)
 ///////////////////////////////////////////////////////////////////////////////
 
 // Plugin help function
-static STATION_PLUGIN_HELP_FUNC(plugin_help)
+static STATION_PLUGIN_HELP_FUNC(plugin_help) // implicit arguments: argc, argv
 {
     (void) argc;
     (void) argv;
@@ -360,7 +364,7 @@ static STATION_PLUGIN_HELP_FUNC(plugin_help)
 }
 
 // Plugin configuration function
-static STATION_PLUGIN_CONF_FUNC(plugin_conf)
+static STATION_PLUGIN_CONF_FUNC(plugin_conf) // implicit arguments: args, argc, argv
 {
     (void) argc;
     (void) argv;
@@ -372,7 +376,7 @@ static STATION_PLUGIN_CONF_FUNC(plugin_conf)
 }
 
 // Plugin initialization function
-static STATION_PLUGIN_INIT_FUNC(plugin_init)
+static STATION_PLUGIN_INIT_FUNC(plugin_init) // implicit arguments: inputs, outputs
 {
     int step = 0;
 
@@ -488,20 +492,20 @@ failure:
 }
 
 // Plugin finalization function
-static STATION_PLUGIN_FINAL_FUNC(plugin_final)
+static STATION_PLUGIN_FINAL_FUNC(plugin_final) // implicit arguments: plugin_resources, quick
 {
-    (void) quick;
-
     struct plugin_resources *resources = plugin_resources;
 
     station_sdl_destroy_window_context(&resources->sdl_window);
 
-    station_unload_font_psf2(resources->font);
+    if (!quick)
+        station_unload_font_psf2(resources->font);
 
     SDL_CloseAudioDevice(resources->snd_device_id);
     SDL_FreeWAV(resources->wav_buffer);
 
-    free(resources);
+    if (!quick)
+        free(resources);
 
     return 0; // success
 }
