@@ -25,18 +25,17 @@
 1. Download and build the [station-app](https://github.com/ivanp7/station)
     * configure with the recommended flags: `./configure -aoAM`
     * build: `ninja -v`
-    * `build/station-app` will be built
+    * `build/libstation-app.a` will be built
 
 2. Build this project
-    * you may need to edit value of `STATION_PATH` in `Makefile`
+    * you may need to edit value of `STATION_PATH` in `Makefile`,
+    it must be a path to the directory containing `station-app.pc` file
     * build: `make`
-    * `still-alive.station` will be built
-
-3. (Optional) Copy the .station file to the station-app build directory
+    * `still-alive` will be built
 
 ## How to run:
 
 ```
-$ ./station-app -j0 ./still-alive.station
+$ ./still-alive
 ```
 

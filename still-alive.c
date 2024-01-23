@@ -3,6 +3,9 @@
 #include <station/plugin.def.h>
 #include <station/plugin.typ.h>
 
+#include <station/application.def.h>
+#include <station/application.fun.h>
+
 #include <station/fsm.typ.h>
 #include <station/fsm.def.h>
 
@@ -41,6 +44,7 @@ extern const unsigned char _binary_song_wav_end; // first address beyond 'song.w
 
 struct plugin_resources {
     station_concurrent_processing_context_t *concurrent_processing_context; // for multithreaded rendering
+    station_concurrent_processing_context_t dummy_concurrent_processing_context; // used when the real context wasn't provided
 
     SDL_Event event; // for window events
     station_sdl_window_context_t sdl_window; // window context
@@ -369,8 +373,6 @@ static STATION_PLUGIN_HELP_FUNC(plugin_help) // implicit arguments: argc, argv
 {
     (void) argc;
     (void) argv;
-
-    printf("usage: station-app still-alive.station\n");
 }
 
 // Plugin configuration function
@@ -392,12 +394,7 @@ static STATION_PLUGIN_INIT_FUNC(plugin_init) // implicit arguments: inputs, outp
 {
     int step = 0;
 
-    if (inputs->concurrent_processing_contexts->num_contexts == 0)
-    {
-        printf("Concurrent processing context is required, but not available\n");
-        goto failure;
-    }
-    else if (!inputs->sdl_is_available)
+    if (!inputs->sdl_is_available)
     {
         printf("SDL is required, but not available\n");
         goto failure;
@@ -416,7 +413,15 @@ static STATION_PLUGIN_INIT_FUNC(plugin_init) // implicit arguments: inputs, outp
     outputs->fsm_initial_state.sfunc = sfunc_init; // begin from resource initialization state function
     outputs->fsm_data = resources;
 
-    resources->concurrent_processing_context = &inputs->concurrent_processing_contexts->contexts[0];
+    resources->dummy_concurrent_processing_context = (station_concurrent_processing_context_t){0};
+
+    if (inputs->concurrent_processing_contexts->num_contexts > 0)
+        resources->concurrent_processing_context = &inputs->concurrent_processing_contexts->contexts[0];
+    else
+    {
+        station_concurrent_processing_initialize_context(&resources->dummy_concurrent_processing_context, 0, false);
+        resources->concurrent_processing_context = &resources->dummy_concurrent_processing_context;
+    }
 
     // Load the song
     {
@@ -522,11 +527,15 @@ static STATION_PLUGIN_FINAL_FUNC(plugin_final) // implicit arguments: plugin_res
     SDL_FreeWAV(resources->wav_buffer);
 
     if (!quick)
+        station_concurrent_processing_destroy_context(&resources->dummy_concurrent_processing_context);
+
+    if (!quick)
         free(resources);
 
     return 0; // success
 }
 
 // Define the plugin
-STATION_PLUGIN("Portal credits song, \"Still Alive\"", plugin_help, plugin_conf, plugin_init, plugin_final)
+STATION_PLUGIN("Portal credits song, \"Still Alive\"", plugin_help, plugin_conf, plugin_init, plugin_final);
+STATION_APP_PLUGIN_MAIN()
 
