@@ -23,7 +23,7 @@
 ## How to build:
 
 1. Download and build the [station-app](https://github.com/ivanp7/station)
-    * configure with recommended flags: `./configure -aoACM`
+    * configure with the recommended flags: `./configure -aoAM`
     * build: `ninja -v`
     * `build/station-app` will be built
 
@@ -37,6 +37,6 @@
 ## How to run:
 
 ```
-$ ./station-app ./still-alive.station
+$ ./station-app -j0 ./still-alive.station
 ```
 

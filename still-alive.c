@@ -6,9 +6,9 @@
 #include <station/fsm.typ.h>
 #include <station/fsm.def.h>
 
-#include <station/parallel.fun.h>
-#include <station/parallel.typ.h>
-#include <station/parallel.def.h>
+#include <station/concurrent.fun.h>
+#include <station/concurrent.typ.h>
+#include <station/concurrent.def.h>
 
 #include <station/sdl.fun.h>
 #include <station/sdl.typ.h>
@@ -40,7 +40,7 @@ extern const unsigned char _binary_song_wav_end; // first address beyond 'song.w
 ///////////////////////////////////////////////////////////////////////////////
 
 struct plugin_resources {
-    station_parallel_processing_context_t *parallel_processing_context; // for multithreaded rendering
+    station_concurrent_processing_context_t *concurrent_processing_context; // for multithreaded rendering
 
     SDL_Event event; // for window events
     station_sdl_window_context_t sdl_window; // window context
@@ -329,15 +329,25 @@ static STATION_SFUNC(sfunc_loop) // implicit arguments: state, fsm_data
             exit(1);
         }
 
+        bool succeed;
+
         // step 2: draw background (pixels) using multiple threads
-        station_parallel_processing_execute(resources->parallel_processing_context,
-                pfunc_draw_background, resources,
-                resources->sdl_window.texture.width * resources->sdl_window.texture.height, 0);
+        do
+        {
+            succeed = station_concurrent_processing_execute(resources->concurrent_processing_context,
+                    resources->sdl_window.texture.width * resources->sdl_window.texture.height, 0,
+                    pfunc_draw_background, resources, NULL, NULL, false);
+        }
+        while (!succeed); // threads may be busy for a short amount of time, try again
 
         // step 3: draw foreground (characters) using multiple threads
-        station_parallel_processing_execute(resources->parallel_processing_context,
-                pfunc_draw_foreground, resources,
-                SCREEN_SIZE_X * SCREEN_SIZE_Y, 0);
+        do
+        {
+            succeed = station_concurrent_processing_execute(resources->concurrent_processing_context,
+                    SCREEN_SIZE_X * SCREEN_SIZE_Y, 0,
+                    pfunc_draw_foreground, resources, NULL, NULL, false);
+        }
+        while (!succeed); // threads may be busy for a short amount of time, try again
 
         // step 4: unlock the texture and render
         if (station_sdl_window_unlock_texture_and_render(&resources->sdl_window) != 0)
@@ -369,7 +379,9 @@ static STATION_PLUGIN_CONF_FUNC(plugin_conf) // implicit arguments: args, argc, 
     (void) argc;
     (void) argv;
 
+    args->num_concurrent_processing_contexts_used = 1;
     args->sdl_is_used = true;
+
 #ifdef STATION_IS_SDL_SUPPORTED
     args->sdl_init_flags = SDL_INIT_VIDEO | SDL_INIT_AUDIO;
 #endif
@@ -380,7 +392,12 @@ static STATION_PLUGIN_INIT_FUNC(plugin_init) // implicit arguments: inputs, outp
 {
     int step = 0;
 
-    if (!inputs->sdl_is_available)
+    if (inputs->concurrent_processing_contexts->num_contexts == 0)
+    {
+        printf("Concurrent processing context is required, but not available\n");
+        goto failure;
+    }
+    else if (!inputs->sdl_is_available)
     {
         printf("SDL is required, but not available\n");
         goto failure;
@@ -399,7 +416,7 @@ static STATION_PLUGIN_INIT_FUNC(plugin_init) // implicit arguments: inputs, outp
     outputs->fsm_initial_state.sfunc = sfunc_init; // begin from resource initialization state function
     outputs->fsm_data = resources;
 
-    resources->parallel_processing_context = inputs->parallel_processing_context;
+    resources->concurrent_processing_context = &inputs->concurrent_processing_contexts->contexts[0];
 
     // Load the song
     {
