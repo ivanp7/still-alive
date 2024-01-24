@@ -24,6 +24,10 @@
 
 #include <station/buffer.typ.h>
 
+#ifndef STATION_IS_CONCURRENT_PROCESSING_SUPPORTED
+#  error Concurrent processing support is required.
+#endif
+
 #ifndef STATION_IS_SDL_SUPPORTED
 #  error SDL support is required.
 #endif
