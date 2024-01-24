@@ -9,6 +9,9 @@
 #include <station/fsm.typ.h>
 #include <station/fsm.def.h>
 
+#include <station/signal.typ.h>
+#include <station/signal.def.h>
+
 #include <station/concurrent.fun.h>
 #include <station/concurrent.typ.h>
 #include <station/concurrent.def.h>
@@ -30,7 +33,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>
+#include <threads.h>
 #include <time.h>
+#include <unistd.h>
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -42,7 +48,16 @@ extern const unsigned char _binary_song_wav_end; // first address beyond 'song.w
 
 ///////////////////////////////////////////////////////////////////////////////
 
+struct plugin_signal_handler_data {
+    long start_time;  // time of execution start
+    long freeze_time; // time of freeze by SIGTSTP
+    mtx_t time_mtx; // mutex for time access
+};
+
 struct plugin_resources {
+    station_signal_set_t *signal_states; // states of signals
+    struct plugin_signal_handler_data *shdata; // time management is affected by signals
+
     station_concurrent_processing_context_t *concurrent_processing_context; // for multithreaded rendering
     station_concurrent_processing_context_t dummy_concurrent_processing_context; // used when the real context wasn't provided
 
@@ -64,30 +79,21 @@ struct plugin_resources {
     int song_line_idx;
     int song_line_char_idx;
     bool song_line_event_processed;
-
-    struct timespec start_time; // time of execution start
 };
 
 ///////////////////////////////////////////////////////////////////////////////
 
-// Get current time
-static struct timespec get_time(void)
+// Get current time in milliseconds
+static long get_time(void)
 {
     struct timespec ts;
     timespec_get(&ts, TIME_UTC);
-    return ts;
-}
-
-// Get number of milliseconds elapsed from start of execution
-static int elapsed_ms(struct timespec start)
-{
-    struct timespec current = get_time();
-    current.tv_sec -= start.tv_sec;
-    current.tv_nsec -= start.tv_nsec;
-    return current.tv_sec * 1000 + current.tv_nsec / 1000000;
+    return (long)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+
+static STATION_SIGNAL_HANDLER_FUNC(signal_handler);
 
 static STATION_SFUNC(sfunc_init); // initialize resources
 
@@ -99,10 +105,48 @@ static STATION_SFUNC(sfunc_loop); // main loop
 
 ///////////////////////////////////////////////////////////////////////////////
 
+// Signal handler function
+static STATION_SIGNAL_HANDLER_FUNC(signal_handler) // implicit arguments: signo, siginfo, signal_states, data
+{
+    (void) siginfo;
+
+    struct plugin_signal_handler_data *shdata = data;
+
+    if (signo == SIGTSTP) // freeze the application
+    {
+        if (STATION_SIGNAL_IS_FLAG_SET(&signal_states->signal_SIGTSTP)) // already frozen
+            return true;
+
+        mtx_lock(&shdata->time_mtx);
+
+        shdata->freeze_time = get_time(); // capture the time
+        kill(getpid(), SIGSTOP);          // stop for good
+
+        return true;
+    }
+    else if (signo == SIGCONT) // unfreeze the application
+    {
+        if (!STATION_SIGNAL_IS_FLAG_SET(&signal_states->signal_SIGTSTP)) // not frozen
+            return false;
+
+        shdata->start_time += get_time() - shdata->freeze_time;    // adjust the start time
+        STATION_SIGNAL_UNSET_FLAG(&signal_states->signal_SIGTSTP); // unset freeze flag
+
+        mtx_unlock(&shdata->time_mtx);
+
+        return false;
+    }
+
+    return true;
+}
+
 // Function to initialize the plugin resources
 static STATION_SFUNC(sfunc_init) // implicit arguments: state, fsm_data
 {
     struct plugin_resources *resources = fsm_data;
+
+    // Proceed to the main loop
+    state->sfunc = sfunc_loop;
 
     // Initialize the screen
     for (int y = 0; y < SCREEN_SIZE_Y; y++)
@@ -138,10 +182,9 @@ static STATION_SFUNC(sfunc_init) // implicit arguments: state, fsm_data
     resources->song_line_event_processed = false;
 
     // Get execution start time
-    resources->start_time = get_time();
-
-    // Proceed to the main loop
-    state->sfunc = sfunc_loop;
+    mtx_lock(&resources->shdata->time_mtx);
+    resources->shdata->start_time = get_time();
+    mtx_unlock(&resources->shdata->time_mtx);
 }
 
 // Function to process the song
@@ -149,8 +192,13 @@ static STATION_SFUNC(sfunc_song) // implicit arguments: state, fsm_data
 {
     struct plugin_resources *resources = fsm_data;
 
+    // Proceed to the main loop
+    state->sfunc = sfunc_loop;
+
     // Get current elapsed time
-    int elapsed = elapsed_ms(resources->start_time);
+    mtx_lock(&resources->shdata->time_mtx);
+    int elapsed = get_time() - resources->shdata->start_time;
+    mtx_unlock(&resources->shdata->time_mtx);
 
     // Get pointer to the current song line
     const struct song_line *current_line = &song[resources->song_line_idx];
@@ -162,9 +210,7 @@ static STATION_SFUNC(sfunc_song) // implicit arguments: state, fsm_data
     // Check if the song ended
     if (current_line->text == NULL)
     {
-        if (elapsed < current_line->end)
-            state->sfunc = sfunc_loop; // wait until end time
-        else
+        if (elapsed >= current_line->end)
             state->sfunc = NULL; // exit now
 
         return;
@@ -259,9 +305,6 @@ static STATION_SFUNC(sfunc_song) // implicit arguments: state, fsm_data
         resources->song_line_char_idx = 0;
         resources->song_line_event_processed = false;
     }
-
-    // Proceed to the main loop
-    state->sfunc = sfunc_loop;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -277,8 +320,12 @@ static STATION_PFUNC(pfunc_draw_background) // implicit arguments: data, task_id
     station_task_idx_t y = task_idx / resources->sdl_window.texture.width;
 
     // Draw the flickering background
+    mtx_lock(&resources->shdata->time_mtx);
+    int elapsed = get_time() - resources->shdata->start_time;
+    mtx_unlock(&resources->shdata->time_mtx);
+
     uint32_t pixel = BG_COLOR0;
-    if ((y - (elapsed_ms(resources->start_time)) / BG_FLICKERING_PERIOD) % BG_FLICKERING_MOD == 0)
+    if ((y - elapsed / BG_FLICKERING_PERIOD) % BG_FLICKERING_MOD == 0)
         pixel = BG_COLOR1;
 
     // Update the texture
@@ -313,6 +360,16 @@ static STATION_SFUNC(sfunc_loop) // implicit arguments: state, fsm_data
 {
     struct plugin_resources *resources = fsm_data;
 
+    // Proceed to the song processing
+    state->sfunc = sfunc_song;
+
+    // Check signal states
+    if (STATION_SIGNAL_IS_FLAG_SET(&resources->signal_states->signal_SIGINT) ||
+            STATION_SIGNAL_IS_FLAG_SET(&resources->signal_states->signal_SIGTERM))
+        exit(EXIT_SUCCESS);
+    else if (STATION_SIGNAL_IS_FLAG_SET(&resources->signal_states->signal_SIGQUIT))
+        quick_exit(EXIT_SUCCESS);
+
     // Poll window events
     while (SDL_PollEvent(&resources->event))
     {
@@ -320,7 +377,7 @@ static STATION_SFUNC(sfunc_loop) // implicit arguments: state, fsm_data
         if ((resources->event.type == SDL_QUIT) ||
                 ((resources->event.type == SDL_KEYDOWN) &&
                  (resources->event.key.keysym.sym == SDLK_ESCAPE)))
-            exit(0);
+            exit(EXIT_SUCCESS);
     }
 
     // Update the window texture
@@ -330,7 +387,7 @@ static STATION_SFUNC(sfunc_loop) // implicit arguments: state, fsm_data
                     true, 0, 0, 0, 0) != 0)
         {
             printf("station_sdl_window_lock_texture() failure\n");
-            exit(1);
+            exit(EXIT_FAILURE);
         }
 
         bool succeed;
@@ -357,13 +414,11 @@ static STATION_SFUNC(sfunc_loop) // implicit arguments: state, fsm_data
         if (station_sdl_window_unlock_texture_and_render(&resources->sdl_window) != 0)
         {
             printf("station_sdl_window_unlock_texture_and_render() failure\n");
-            exit(1);
+            exit(EXIT_FAILURE);
         }
     }
 
     SDL_Delay(10); // don't overheat the processor
-
-    state->sfunc = sfunc_song;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -381,9 +436,31 @@ static STATION_PLUGIN_CONF_FUNC(plugin_conf) // implicit arguments: args, argc, 
     (void) argc;
     (void) argv;
 
-    args->num_concurrent_processing_contexts_used = 1;
-    args->sdl_is_used = true;
+    *args->signals_used = STATION_SIGNAL_SET_ALL;
+    args->signal_handler = signal_handler;
 
+    struct plugin_signal_handler_data *shdata = malloc(sizeof(*shdata));
+    if (shdata == NULL)
+    {
+        printf("Couldn't allocate signal handler data\n");
+        exit(EXIT_FAILURE);
+    }
+
+    if (mtx_init(&shdata->time_mtx, mtx_plain) != thrd_success)
+    {
+        printf("Couldn't create a mutex\n");
+        exit(EXIT_FAILURE);
+    }
+
+    mtx_lock(&shdata->time_mtx);
+    shdata->start_time = 0;
+    mtx_unlock(&shdata->time_mtx);
+
+    args->signal_handler_data = shdata;
+
+    args->num_concurrent_processing_contexts_used = 1;
+
+    args->sdl_is_used = true;
 #ifdef STATION_IS_SDL_SUPPORTED
     args->sdl_init_flags = SDL_INIT_VIDEO | SDL_INIT_AUDIO;
 #endif
@@ -412,6 +489,9 @@ static STATION_PLUGIN_INIT_FUNC(plugin_init) // implicit arguments: inputs, outp
 
     outputs->fsm_initial_state.sfunc = sfunc_init; // begin from resource initialization state function
     outputs->fsm_data = resources;
+
+    resources->signal_states = inputs->signal_states;
+    resources->shdata = inputs->signal_handler_data;
 
     resources->dummy_concurrent_processing_context = (station_concurrent_processing_context_t){0};
 
@@ -448,7 +528,7 @@ static STATION_PLUGIN_INIT_FUNC(plugin_init) // implicit arguments: inputs, outp
         if (SDL_QueueAudio(resources->snd_device_id, resources->wav_buffer, resources->wav_length) < 0)
         {
             printf("Couldn't queue WAV to play\n");
-            exit(1);
+            exit(EXIT_FAILURE);
         }
     }
 
@@ -510,7 +590,7 @@ failure:
     if (step >= 1)
         free(resources);
 
-    exit(1);
+    exit(EXIT_FAILURE);
 }
 
 // Plugin finalization function
@@ -528,6 +608,11 @@ static STATION_PLUGIN_FINAL_FUNC(plugin_final) // implicit arguments: plugin_res
 
     if (!quick)
         station_concurrent_processing_destroy_context(&resources->dummy_concurrent_processing_context);
+
+    mtx_destroy(&resources->shdata->time_mtx);
+
+    if (!quick)
+        free(resources->shdata);
 
     if (!quick)
         free(resources);
