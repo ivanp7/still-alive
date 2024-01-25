@@ -23,7 +23,7 @@
 ## How to build:
 
 1. Download and build the [station-app](https://github.com/ivanp7/station)
-    * configure with the recommended flags: `./configure -aoAM`
+    * configure with the recommended flags: `./configure -aoACSM`
     * build: `ninja -v`
     * `build/libstation-app.a` will be built
 
