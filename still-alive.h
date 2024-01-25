@@ -23,17 +23,17 @@
 // Window parameters
 #define WINDOW_SCALE 2 // window pixels per texture pixel
 
-// Colors
+// Colors (AABBGGRR - alpha, blue, green, red)
 #define TEXT_COLOR 0xFF0066AA
 #define BG_COLOR0 0xFF001122 // main background color
 #define BG_COLOR1 0xFF001929 // color of background flickering
 
 // Background flickering parameters
 #define BG_FLICKERING_MOD 3
-#define BG_FLICKERING_PERIOD 10
+#define BG_FLICKERING_PERIOD 10 // ms
 
 // Cursor flickering parameters
-#define CURSOR_FLICKERING_PERIOD 250
+#define CURSOR_FLICKERING_PERIOD 250 // ms
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -59,8 +59,8 @@ enum song_event {
 
 struct song_line {
     const char *text; // line text
-    int start; // timestamp of line start
-    int end;   // timestamp of line end
+    long start; // timestamp of line start
+    long end;   // timestamp of line end
     enum song_event event; // event at line
     _Bool no_echo; // don't echo to terminal
 };

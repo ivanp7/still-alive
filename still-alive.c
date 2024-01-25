@@ -188,7 +188,7 @@ static STATION_SFUNC(sfunc_song) // implicit arguments: state, fsm_data
     // Get current elapsed time
     mtx_lock(&resources->shdata->time_mtx);
     resources->shdata->last_time = get_time();
-    int elapsed = resources->shdata->last_time - resources->shdata->start_time;
+    long elapsed = resources->shdata->last_time - resources->shdata->start_time;
     mtx_unlock(&resources->shdata->time_mtx);
 
     // Get pointer to the current song line
@@ -326,7 +326,7 @@ static STATION_PFUNC(pfunc_draw_background) // implicit arguments: data, task_id
 
     // Draw the flickering background
     mtx_lock(&resources->shdata->time_mtx);
-    int elapsed = get_time() - resources->shdata->start_time;
+    long elapsed = get_time() - resources->shdata->start_time;
     mtx_unlock(&resources->shdata->time_mtx);
 
     uint32_t pixel = BG_COLOR0;
