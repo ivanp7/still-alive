@@ -40,7 +40,6 @@
 #include <signal.h>
 #include <threads.h>
 #include <time.h>
-#include <unistd.h>
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -53,9 +52,9 @@ extern const unsigned char _binary_song_wav_end; // first address beyond 'song.w
 ///////////////////////////////////////////////////////////////////////////////
 
 struct plugin_signal_handler_data {
-    long start_time;  // time of execution start
-    long freeze_time; // time of freeze by SIGTSTP
-    mtx_t time_mtx; // mutex for time access
+    long start_time; // time of execution start
+    long last_time;  // time of the last update
+    mtx_t time_mtx;  // mutex for time access
 };
 
 struct plugin_resources {
@@ -113,29 +112,15 @@ static STATION_SFUNC(sfunc_loop); // main loop
 static STATION_SIGNAL_HANDLER_FUNC(signal_handler) // implicit arguments: signo, siginfo, signal_states, data
 {
     (void) siginfo;
+    (void) signal_states;
 
     struct plugin_signal_handler_data *shdata = data;
 
-    if (signo == SIGTSTP) // freeze the application
+    if (signo == SIGCONT)
     {
-        if (STATION_SIGNAL_IS_FLAG_SET(&signal_states->signal_SIGTSTP)) // already frozen
-            return true;
-
+        // Adjust the start time
         mtx_lock(&shdata->time_mtx);
-
-        shdata->freeze_time = get_time(); // capture the time
-        kill(getpid(), SIGSTOP);          // stop for good
-
-        return true;
-    }
-    else if (signo == SIGCONT) // unfreeze the application
-    {
-        if (!STATION_SIGNAL_IS_FLAG_SET(&signal_states->signal_SIGTSTP)) // not frozen
-            return false;
-
-        STATION_SIGNAL_UNSET_FLAG(&signal_states->signal_SIGTSTP); // unset freeze flag
-        shdata->start_time += get_time() - shdata->freeze_time;    // adjust the start time
-
+        shdata->start_time += get_time() - shdata->last_time;
         mtx_unlock(&shdata->time_mtx);
 
         return false;
@@ -187,7 +172,7 @@ static STATION_SFUNC(sfunc_init) // implicit arguments: state, fsm_data
 
     // Get execution start time
     mtx_lock(&resources->shdata->time_mtx);
-    resources->shdata->start_time = get_time();
+    resources->shdata->last_time = resources->shdata->start_time = get_time();
     mtx_unlock(&resources->shdata->time_mtx);
 }
 
@@ -201,7 +186,8 @@ static STATION_SFUNC(sfunc_song) // implicit arguments: state, fsm_data
 
     // Get current elapsed time
     mtx_lock(&resources->shdata->time_mtx);
-    int elapsed = get_time() - resources->shdata->start_time;
+    resources->shdata->last_time = get_time();
+    int elapsed = resources->shdata->last_time - resources->shdata->start_time;
     mtx_unlock(&resources->shdata->time_mtx);
 
     // Get pointer to the current song line
@@ -454,7 +440,7 @@ static STATION_PLUGIN_CONF_FUNC(plugin_conf) // implicit arguments: args, argc, 
     (void) argc;
     (void) argv;
 
-    *args->signals_used = STATION_SIGNAL_SET_ALL;
+    args->signals_used->signal_SIGCONT = true;
     args->signal_handler = signal_handler;
 
     struct plugin_signal_handler_data *shdata = malloc(sizeof(*shdata));
@@ -471,7 +457,7 @@ static STATION_PLUGIN_CONF_FUNC(plugin_conf) // implicit arguments: args, argc, 
     }
 
     mtx_lock(&shdata->time_mtx);
-    shdata->start_time = 0;
+    shdata->last_time = shdata->start_time = 0;
     mtx_unlock(&shdata->time_mtx);
 
     args->signal_handler_data = shdata;
