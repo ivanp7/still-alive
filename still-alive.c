@@ -133,8 +133,8 @@ static STATION_SIGNAL_HANDLER_FUNC(signal_handler) // implicit arguments: signo,
         if (!STATION_SIGNAL_IS_FLAG_SET(&signal_states->signal_SIGTSTP)) // not frozen
             return false;
 
-        shdata->start_time += get_time() - shdata->freeze_time;    // adjust the start time
         STATION_SIGNAL_UNSET_FLAG(&signal_states->signal_SIGTSTP); // unset freeze flag
+        shdata->start_time += get_time() - shdata->freeze_time;    // adjust the start time
 
         mtx_unlock(&shdata->time_mtx);
 
@@ -249,6 +249,13 @@ static STATION_SFUNC(sfunc_song) // implicit arguments: state, fsm_data
                 // Reset the cursor to the top-left corner
                 resources->cursor_x = 0;
                 resources->cursor_y = 0;
+
+                // Print to terminal
+                if (!current_line->no_echo)
+                {
+                    printf("\n------------------------------------\n");
+                    fflush(stdout);
+                }
                 break;
 
             default: // draw a picture
@@ -295,6 +302,13 @@ static STATION_SFUNC(sfunc_song) // implicit arguments: state, fsm_data
 
             // Draw a character
             resources->screen[1 + resources->cursor_y][1 + resources->cursor_x - 1] = current_chr;
+        }
+
+        // Print to terminal
+        if (!current_line->no_echo)
+        {
+            printf("%c", current_chr);
+            fflush(stdout);
         }
     }
 
@@ -625,6 +639,7 @@ static STATION_PLUGIN_FINAL_FUNC(plugin_final) // implicit arguments: plugin_res
 }
 
 // Define the plugin
-STATION_PLUGIN("Portal credits song, \"Still Alive\"", plugin_help, plugin_conf, plugin_init, plugin_final);
+STATION_PLUGIN("still-alive", "Portal credits song, \"Still Alive\"",
+        plugin_help, plugin_conf, plugin_init, plugin_final);
 STATION_APP_PLUGIN_MAIN()
 

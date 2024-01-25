@@ -62,6 +62,7 @@ struct song_line {
     int start; // timestamp of line start
     int end;   // timestamp of line end
     enum song_event event; // event at line
+    _Bool no_echo; // don't echo to terminal
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -139,7 +140,9 @@ static const struct song_line song[] = {
     {.text = "On the people who are\n",                 .start = 154800,    .end = 156000,  .event = EVENT_DRAW_APERTURE},
     {.text = "still alive.\n",                          .start = 156000,    .end = 158000},
 
-    {.text = "\n\n\nPS: And believe me I am\n",         .start = 159000,    .end = 160000,  .event = EVENT_CLEAR_SCREEN},
+    {.text = "",                                        .start = 159000,    .end = 159000,  .event = EVENT_CLEAR_SCREEN},
+    {.text = "\n\n\n",                                  .start = 159000,    .end = 159000,                                  .no_echo = 1},
+    {.text = "PS: And believe me I am\n",               .start = 159000,    .end = 160000},
     {.text = "still alive.\n",                          .start = 160000,    .end = 161000},
     {.text = "PPS: I'm doing Science and I'm\n",        .start = 162500,    .end = 164000},
     {.text = "still alive.\n",                          .start = 164000,    .end = 166000},
@@ -154,8 +157,8 @@ static const struct song_line song[] = {
     {.text = "STILL ALIVE\n",                           .start = 178000,    .end = 179000},
     {.text = "",                                        .start = 180000,    .end = 185000},
 
-    {.text = "\n\n\n\n\n\n\n\n\n\n\n\n\n\n    ",        .start = 185000,    .end = 185000,  .event = EVENT_CLEAR_SCREEN},
-    {.text = "Portal is an amazing game!!!",            .start = 185000,    .end = 187000,  .event = EVENT_DRAW_HEART},
+    {.text = "\n\n\n\n\n\n\n\n\n\n\n\n\n\n    ",        .start = 185000,    .end = 185000,  .event = EVENT_CLEAR_SCREEN,    .no_echo = 1},
+    {.text = "Portal is an amazing game!!!",            .start = 185000,    .end = 187000,  .event = EVENT_DRAW_HEART,      .no_echo = 1},
 
     {.text = 0,                                         .start = 187000,    .end = 190000},
 };
