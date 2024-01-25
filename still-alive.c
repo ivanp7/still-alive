@@ -58,7 +58,7 @@ struct plugin_signal_handler_data {
 };
 
 struct plugin_resources {
-    station_signal_set_t *signal_states; // states of signals
+    station_std_signal_set_t *std_signals; // states of standard signals
     struct plugin_signal_handler_data *shdata; // time management is affected by signals
 
     station_concurrent_processing_context_t *concurrent_processing_context; // for multithreaded rendering
@@ -109,10 +109,11 @@ static STATION_SFUNC(sfunc_loop); // main loop
 ///////////////////////////////////////////////////////////////////////////////
 
 // Signal handler function
-static STATION_SIGNAL_HANDLER_FUNC(signal_handler) // implicit arguments: signo, siginfo, signal_states, data
+static STATION_SIGNAL_HANDLER_FUNC(signal_handler) // implicit arguments: signo, siginfo, std_signals, rt_signals, data
 {
     (void) siginfo;
-    (void) signal_states;
+    (void) std_signals;
+    (void) rt_signals;
 
     struct plugin_signal_handler_data *shdata = data;
 
@@ -368,10 +369,10 @@ static STATION_SFUNC(sfunc_loop) // implicit arguments: state, fsm_data
     state->sfunc = sfunc_song;
 
     // Check signal states
-    if (STATION_SIGNAL_IS_FLAG_SET(&resources->signal_states->signal_SIGINT) ||
-            STATION_SIGNAL_IS_FLAG_SET(&resources->signal_states->signal_SIGTERM))
+    if (STATION_SIGNAL_IS_FLAG_SET(&resources->std_signals->signal_SIGINT) ||
+            STATION_SIGNAL_IS_FLAG_SET(&resources->std_signals->signal_SIGTERM))
         exit(EXIT_SUCCESS);
-    else if (STATION_SIGNAL_IS_FLAG_SET(&resources->signal_states->signal_SIGQUIT))
+    else if (STATION_SIGNAL_IS_FLAG_SET(&resources->std_signals->signal_SIGQUIT))
         quick_exit(EXIT_SUCCESS);
 
     // Poll window events
@@ -440,7 +441,7 @@ static STATION_PLUGIN_CONF_FUNC(plugin_conf) // implicit arguments: args, argc, 
     (void) argc;
     (void) argv;
 
-    args->signals_used->signal_SIGCONT = true;
+    args->std_signals_used->signal_SIGCONT = true;
     args->signal_handler = signal_handler;
 
     struct plugin_signal_handler_data *shdata = malloc(sizeof(*shdata));
@@ -494,7 +495,7 @@ static STATION_PLUGIN_INIT_FUNC(plugin_init) // implicit arguments: inputs, outp
     outputs->fsm_initial_state.sfunc = sfunc_init; // begin from resource initialization state function
     outputs->fsm_data = resources;
 
-    resources->signal_states = inputs->signal_states;
+    resources->std_signals = inputs->std_signals;
     resources->shdata = inputs->signal_handler_data;
 
     resources->dummy_concurrent_processing_context = (station_concurrent_processing_context_t){0};
