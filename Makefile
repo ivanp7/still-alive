@@ -17,7 +17,7 @@ OBJCOPY = objcopy
 
 
 ${OUT_APPLICATION}: ${SOURCE}.o ${FONT}.o ${SONG}.o
-	${CC} -o ${OUT_APPLICATION} ${SOURCE}.o ${FONT}.o ${SONG}.o ${CFLAGS} ${LFLAGS} -Wl,-z noexecstack
+	${CC} -o ${OUT_APPLICATION} ${SOURCE}.o ${FONT}.o ${SONG}.o ${CFLAGS} ${LFLAGS} -Wl,-znoexecstack
 
 ${SOURCE}.o: ${HEADER} ${SOURCE}
 	${CC} -c -o ${SOURCE}.o ${SOURCE} ${CFLAGS}
