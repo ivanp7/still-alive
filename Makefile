@@ -10,8 +10,8 @@ OUT_APPLICATION = still-alive
 
 CFLAGS = -march=native -pipe -std=c17 -Wall -Wextra -Wpedantic -pedantic-errors \
 		 -Wmissing-prototypes -Wstrict-prototypes -Wold-style-definition \
-		 $(shell pkg-config --with-path "${STATION_PATH}" --cflags station-app) -O2 # -g3 -ggdb
-LFLAGS = $(shell pkg-config --with-path "${STATION_PATH}" --libs station-app)
+		 $(shell PKG_CONFIG_PATH="${STATION_PATH}" pkg-config --cflags station-app) -O2 # -g3 -ggdb
+LFLAGS = $(shell PKG_CONFIG_PATH="${STATION_PATH}" pkg-config --libs station-app)
 
 OBJCOPY = objcopy
 
