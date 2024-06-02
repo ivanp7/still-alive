@@ -369,11 +369,13 @@ static STATION_SFUNC(sfunc_loop) // implicit arguments: state, fsm_data
     state->sfunc = sfunc_song;
 
     // Check signal states
+    /*
     if (STATION_SIGNAL_IS_FLAG_SET(&resources->std_signals->signal_SIGINT) ||
             STATION_SIGNAL_IS_FLAG_SET(&resources->std_signals->signal_SIGTERM))
         exit(EXIT_SUCCESS);
     else if (STATION_SIGNAL_IS_FLAG_SET(&resources->std_signals->signal_SIGQUIT))
         quick_exit(EXIT_SUCCESS);
+    */
 
     // Poll window events
     while (SDL_PollEvent(&resources->event))
