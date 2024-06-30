@@ -435,6 +435,8 @@ static STATION_PLUGIN_HELP_FUNC(plugin_help) // implicit arguments: argc, argv
 {
     (void) argc;
     (void) argv;
+
+    printf("just do it\n");
 }
 
 // Plugin configuration function
