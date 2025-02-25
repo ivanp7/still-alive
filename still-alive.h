@@ -3,6 +3,7 @@
 // Remade for Linux in 2016
 // Rewritten in 2018
 // Completely rewritten again as station-app plugin in 2024
+// Rewritten once again as archi-app plugin in 2025
 
 // GLaDOS 3.11 - [Still Alive]
 
@@ -12,21 +13,18 @@
 #define TEXT_SIZE_X (35 + 1) // minimum + extra
 #define TEXT_SIZE_Y (23 + 5) // minimum + extra
 
-// Picture area size in characters
-#define PICTURE_SIZE_X 41
-#define PICTURE_SIZE_Y 20
+// ASCII art size in characters
+#define ASCIIART_SIZE_X 41
+#define ASCIIART_SIZE_Y 20
 
 // Whole screen size in characters
-#define SCREEN_SIZE_X (1 + TEXT_SIZE_X + 1 + PICTURE_SIZE_X + 1)
+#define SCREEN_SIZE_X (1 + TEXT_SIZE_X + 1 + ASCIIART_SIZE_X + 1)
 #define SCREEN_SIZE_Y (1 + TEXT_SIZE_Y + 1)
-
-// Window parameters
-#define WINDOW_SCALE 2 // window pixels per texture pixel
 
 // Colors (AABBGGRR - alpha, blue, green, red)
 #define TEXT_COLOR 0xFF0066AA
 #define BG_COLOR0 0xFF001122 // main background color
-#define BG_COLOR1 0xFF001929 // color of background flickering
+#define BG_COLOR1 0xFF001525 // color of background flickering
 
 // Background flickering parameters
 #define BG_FLICKERING_MOD 3
@@ -41,9 +39,9 @@ enum song_event {
     EVENT_NONE = 0,
     EVENT_START_MUSIC,
     EVENT_CLEAR_SCREEN,
-    EVENT_DRAW_PICTURE,
+    EVENT_DRAW_ASCIIART,
 
-    EVENT_DRAW_APERTURE = EVENT_DRAW_PICTURE,
+    EVENT_DRAW_APERTURE = EVENT_DRAW_ASCIIART,
     EVENT_DRAW_EXPLOSION,
     EVENT_DRAW_ATOM,
     EVENT_DRAW_RADIOACTIVE,
@@ -62,7 +60,6 @@ struct song_line {
     long start; // timestamp of line start
     long end;   // timestamp of line end
     enum song_event event; // event at line
-    _Bool no_echo; // don't echo to terminal
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -71,7 +68,8 @@ struct song_line {
 #define COMMENT1 "IN THIS"
 #define COMMENT2 "ENRICHMENT CENTER ACTIVITY!!"
 
-static const struct song_line song[] = {
+static
+const struct song_line song[] = {
     {.text = "Forms FORM-29827281-12:\n",               .start = 0,         .end = 2500},
     {.text = "Test Assesment Report\n\n\n",             .start = 2500,      .end = 5000},
 
@@ -141,7 +139,7 @@ static const struct song_line song[] = {
     {.text = "still alive.\n",                          .start = 156000,    .end = 158000},
 
     {.text = "",                                        .start = 159000,    .end = 159000,  .event = EVENT_CLEAR_SCREEN},
-    {.text = "\n\n\n",                                  .start = 159000,    .end = 159000,                                  .no_echo = 1},
+    {.text = "\n\n\n",                                  .start = 159000,    .end = 159000},
     {.text = "PS: And believe me I am\n",               .start = 159000,    .end = 160000},
     {.text = "still alive.\n",                          .start = 160000,    .end = 161000},
     {.text = "PPS: I'm doing Science and I'm\n",        .start = 162500,    .end = 164000},
@@ -157,15 +155,16 @@ static const struct song_line song[] = {
     {.text = "STILL ALIVE\n",                           .start = 178000,    .end = 179000},
     {.text = "",                                        .start = 180000,    .end = 185000},
 
-    {.text = "\n\n\n\n\n\n\n\n\n\n\n\n\n\n    ",        .start = 185000,    .end = 185000,  .event = EVENT_CLEAR_SCREEN,    .no_echo = 1},
-    {.text = "Portal is an amazing game!!!",            .start = 185000,    .end = 187000,  .event = EVENT_DRAW_HEART,      .no_echo = 1},
+    /* {.text = "\n\n\n\n\n\n\n\n\n\n\n\n\n\n    ",        .start = 185000,    .end = 185000,  .event = EVENT_CLEAR_SCREEN}, */
+    /* {.text = "Portal is an amazing game!!!\n",          .start = 185000,    .end = 187000,  .event = EVENT_DRAW_HEART}, */
 
     {.text = 0,                                         .start = 187000,    .end = 190000},
 };
 
 ///////////////////////////////////////////////////////////////////////////////
 
-static const char song_picture[][PICTURE_SIZE_Y][PICTURE_SIZE_X] = {
+static
+const char song_asciiart[][ASCIIART_SIZE_Y][ASCIIART_SIZE_X] = {
     {
         "              .,-:;//;:=,                ",
         "          . :H@@@MM@M#H/.,+%;,           ",
