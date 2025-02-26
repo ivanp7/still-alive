@@ -384,8 +384,14 @@ ARCHI_FSM_STATE_FUNCTION(glados_state_loop)
             ARCHI_FSM_DONE(ARCHI_FSM_STACK_SIZE() - glados->entry_stack_size);
     }
 
-    // Proceed with the drawing
-    ARCHI_FSM_PROCEED(0, ARCHI_FSM_STATE(glados_state_draw, glados));
+    // Prevent excess CPU usage
+    SDL_Delay(10);
+
+    // Proceed with the singing and drawing
+    ARCHI_FSM_PROCEED(0,
+            ARCHI_FSM_STATE(glados_state_sing, glados),
+            ARCHI_FSM_STATE(glados_state_draw, glados),
+            ARCHI_FSM_CURRENT());
 }
 
 // The drawing state
@@ -440,12 +446,6 @@ ARCHI_FSM_STATE_FUNCTION(glados_state_draw)
         ARCHI_FSM_SET_CODE(ARCHI_ERROR_OPERATION);
         ARCHI_FSM_DONE(ARCHI_FSM_STACK_SIZE() - glados->entry_stack_size);
     }
-
-    // Prevent excess CPU usage
-    SDL_Delay(10);
-
-    // Proceed with the singing
-    ARCHI_FSM_PROCEED(0, ARCHI_FSM_STATE(glados_state_sing, glados));
 }
 
 // The singing state
@@ -481,7 +481,7 @@ ARCHI_FSM_STATE_FUNCTION(glados_state_sing)
             ARCHI_FSM_DONE(ARCHI_FSM_STACK_SIZE() - glados->entry_stack_size);
         }
         else
-            goto proceed;
+            return;
     }
 
     // Get pointer to the next song line
@@ -586,10 +586,6 @@ ARCHI_FSM_STATE_FUNCTION(glados_state_sing)
         glados->song_line_char_idx = 0;
         glados->song_line_event_processed = false;
     }
-
-proceed:
-    // Return to the main state
-    ARCHI_FSM_PROCEED(0, ARCHI_FSM_STATE(glados_state_loop, glados));
 }
 
 /*****************************************************************************/
