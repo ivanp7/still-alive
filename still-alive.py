@@ -76,17 +76,17 @@ sdl_window = app.new_context(
 glados = app.new_context('glados', 'glados') # the GLaDOS context (song context)
 
 # Configure the GLaDOS context
-glados.signal_flags = app_signal.signal_flags     # copy pointer to the signal flags to GLaDOS
-glados.thread_group = thread_group # copy pointer to the thread group to GLaDOS
-glados.sdl_window = sdl_window     # copy pointer to the window to GLaDOS
+glados.signal_flags = app_signal.signal_flags # provide pointer to the signal flags to GLaDOS
+glados.thread_group = thread_group            # provide pointer to the thread group to GLaDOS
+glados.sdl_window   = sdl_window              # provide pointer to the window to GLaDOS
 
 glados.init() # invoke internal GLaDOS initialization that depends on the external pointers
 
 # Configure the built-in contexts
 app_signal.signal_handler = glados.signal_handler # install the signal handler from GLaDOS
 
-app_fsm.entry_state_function = glados.entry_state_function # set function of the entry state of the application FSM
-app_fsm.entry_state_data = glados                          # set data of the entry state to GLaDOS itself
+app_fsm.entry_state_function = glados.entry_state_function # set entry state function of the application FSM
+app_fsm.entry_state_data     = glados                      # set data of the entry state to GLaDOS itself
 
 #################################
 # Create the configuration file #
