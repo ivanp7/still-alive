@@ -49,6 +49,10 @@ app.register_interface('sdl_library', 'plugin_sdl_library_interface', 'libsdl') 
 app.register_interface('sdl_window', 'plugin_sdl_window_context_interface', 'libsdl') # register the SDL window context interface
 app.register_interface('glados', 'glados_interface', 'still-alive')                   # register the song interface
 
+# Obtain built-in contexts
+app_signal = app.builtin_context(archi.APP_SIGNAL_CONTEXT_KEY) # obtain the application signal management context
+app_fsm = app.builtin_context(archi.APP_FSM_CONTEXT_KEY) # obtain the application finite state machine
+
 # Create contexts
 thread_group = app.new_context(
         'thread_group', 'thread_group', # a group of threads for multicore rendering
@@ -72,21 +76,17 @@ sdl_window = app.new_context(
 glados = app.new_context('glados', 'glados') # the GLaDOS context (song context)
 
 # Configure the GLaDOS context
-app_signal = app.builtin_context(archi.APP_SIGNAL_CONTEXT_KEY) # extract the application signal management context
-
 glados.signal_flags = app_signal.signal_flags     # copy pointer to the signal flags to GLaDOS
-app_signal.signal_handler = glados.signal_handler # install the signal handler from GLaDOS
-
 glados.thread_group = thread_group # copy pointer to the thread group to GLaDOS
 glados.sdl_window = sdl_window     # copy pointer to the window to GLaDOS
 
-glados.init() # invoke internal GLaDOS initialization depending on the external pointers
+glados.init() # invoke internal GLaDOS initialization that depends on the external pointers
 
-# Set the entry state of the application finite state machine to GLaDOS
-app_fsm = app.builtin_context(archi.APP_FSM_CONTEXT_KEY) # extract the application finite state machine
+# Configure the built-in contexts
+app_signal.signal_handler = glados.signal_handler # install the signal handler from GLaDOS
 
-app_fsm.entry_state_function = glados.entry_state_function # entry function
-app_fsm.entry_state_data = glados                          #   of GLaDOS
+app_fsm.entry_state_function = glados.entry_state_function # set function of the entry state of the application FSM
+app_fsm.entry_state_data = glados                          # set data of the entry state to GLaDOS itself
 
 #################################
 # Create the configuration file #
