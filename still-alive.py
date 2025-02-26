@@ -4,18 +4,17 @@ import archi
 import ctypes as c
 import sys
 
-
 ##########################################
 # Hardcoded constants, don't change them #
 ##########################################
 
-FONT_WIDTH = 6
+FONT_WIDTH  = 6
 FONT_HEIGHT = 12
 
 SCREEN_SIZE_X = 1 + (35 + 1) + 1 + 41 + 1
 SCREEN_SIZE_Y = 1 + (23 + 5) + 1
 
-TEXTURE_WIDTH = FONT_WIDTH * SCREEN_SIZE_X
+TEXTURE_WIDTH  = FONT_WIDTH * SCREEN_SIZE_X
 TEXTURE_HEIGHT = FONT_HEIGHT * SCREEN_SIZE_Y
 
 ##############################
@@ -24,8 +23,9 @@ TEXTURE_HEIGHT = FONT_HEIGHT * SCREEN_SIZE_Y
 
 NUM_THREADS = 4 # number of rendering threads
 
-WINDOW_WIDTH = TEXTURE_WIDTH * 2
+WINDOW_WIDTH  = TEXTURE_WIDTH * 2
 WINDOW_HEIGHT = TEXTURE_HEIGHT * 2
+
 WINDOW_TITLE = "Still Alive"
 
 #############################
