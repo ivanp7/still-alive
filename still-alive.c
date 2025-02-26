@@ -211,7 +211,7 @@ ARCHI_THREADS_TASK_FUNC(glados_draw_blur)
         local[1][1] = texture[task_idx];
 
         if (x < (texture_width - 1))
-            local[0][2] = texture[y * texture_width + (x + 1)];
+            local[1][2] = texture[y * texture_width + (x + 1)];
     }
     if (y < (texture_height - 1))
     {
