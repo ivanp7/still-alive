@@ -50,8 +50,8 @@ app.register_interface('sdl_window', 'plugin_sdl_window_context_interface', 'lib
 app.register_interface('glados', 'glados_interface', 'still-alive')                   # register the song interface
 
 # Obtain built-in contexts
-app_signal = app.builtin_context(archi.APP_SIGNAL_CONTEXT_KEY) # obtain the application signal management context
-app_fsm = app.builtin_context(archi.APP_FSM_CONTEXT_KEY) # obtain the application finite state machine
+app_signal = app.context(archi.APP_SIGNAL_CONTEXT_KEY) # obtain the application signal management context
+app_fsm = app.context(archi.APP_FSM_CONTEXT_KEY) # obtain the application finite state machine
 
 # Create contexts
 thread_group = app.new_context(
