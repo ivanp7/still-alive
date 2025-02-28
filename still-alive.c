@@ -6,10 +6,9 @@
 #include "archi/util/print.fun.h" // logging
 
 #include "archi/util/os/signal.fun.h" // signal management
-#include "archi/plugin/threads/interface.fun.h" // concurrent processing
-#include "sdl/interface.fun.h" // window operations
+#include "archi/util/os/threads.fun.h" // concurrent processing
+#include "sdl/window.fun.h" // window operations
 #include "sdl/font.fun.h" // font operations
-#include "sdl/font.typ.h" // font type
 
 #include <stdio.h>
 #include <stdlib.h>
