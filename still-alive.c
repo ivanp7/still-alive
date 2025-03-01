@@ -593,6 +593,7 @@ ARCHI_FSM_STATE_FUNCTION(glados_state_sing)
 static
 ARCHI_CONTEXT_INIT_FUNC(glados_init)
 {
+    (void) metadata;
     (void) config;
 
     if (context == NULL)
@@ -650,6 +651,8 @@ ARCHI_CONTEXT_INIT_FUNC(glados_init)
 static
 ARCHI_CONTEXT_FINAL_FUNC(glados_final)
 {
+    (void) metadata;
+
     glados_data_t *glados = context;
 
     if (glados->snd_device_id != 0)
@@ -669,6 +672,8 @@ ARCHI_CONTEXT_FINAL_FUNC(glados_final)
 static
 ARCHI_CONTEXT_SET_FUNC(glados_set)
 {
+    (void) metadata;
+
     if ((context == NULL) || (slot == NULL) || (value == NULL))
         return ARCHI_ERROR_MISUSE;
 
@@ -704,6 +709,8 @@ ARCHI_CONTEXT_SET_FUNC(glados_set)
 static
 ARCHI_CONTEXT_GET_FUNC(glados_get)
 {
+    (void) metadata;
+
     if ((context == NULL) || (slot == NULL) || (value == NULL))
         return ARCHI_ERROR_MISUSE;
 
@@ -736,6 +743,7 @@ ARCHI_CONTEXT_GET_FUNC(glados_get)
 static
 ARCHI_CONTEXT_ACT_FUNC(glados_act)
 {
+    (void) metadata;
     (void) params;
 
     if ((context == NULL) || (action == NULL))
