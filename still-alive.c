@@ -34,6 +34,14 @@ INCBIN(song_wav, "song.wav");
 
 /*****************************************************************************/
 
+static
+const int texture_width = FONT_WIDTH * SCREEN_SIZE_X;
+
+static
+const int texture_height = FONT_HEIGHT * SCREEN_SIZE_Y;
+
+/*****************************************************************************/
+
 struct glados_signal_handler_data {
     long start_time; // time of the application start
     long last_time;  // time of the last update
@@ -121,9 +129,6 @@ ARCHI_THREADS_TASK_FUNC(glados_draw_background)
 
     glados_data_t *glados = data;
 
-    int texture_width;
-    plugin_sdl_window_get_texture_size(glados->window, &texture_width, NULL);
-
     // Compute coordinates of the current pixel
     size_t y = task_idx / texture_width;
 
@@ -179,9 +184,6 @@ ARCHI_THREADS_TASK_FUNC(glados_draw_blur)
     (void) thread_idx; // all threads are doing the same
 
     glados_data_t *glados = data;
-
-    int texture_width, texture_height;
-    plugin_sdl_window_get_texture_size(glados->window, &texture_width, &texture_height);
 
     // Compute coordinates of the current pixel
     int x = task_idx % texture_width;
@@ -296,19 +298,6 @@ ARCHI_FSM_STATE_FUNCTION(glados_state_init)
         ARCHI_FSM_DONE(0);
     }
 
-    {
-        int width, height;
-        plugin_sdl_window_get_texture_size(glados->window, &width, &height);
-
-        if ((width != (int)glados->font->header->width * SCREEN_SIZE_X) ||
-                (height != (int)glados->font->header->height * SCREEN_SIZE_Y))
-        {
-            archi_log_error(M, "Incorrect window texture size.");
-            ARCHI_FSM_SET_CODE(ARCHI_ERROR_MISUSE);
-            ARCHI_FSM_DONE(0);
-        }
-    }
-
     // Initialize the screen
     for (int y = 0; y < SCREEN_SIZE_Y; y++)
     {
@@ -409,13 +398,10 @@ ARCHI_FSM_STATE_FUNCTION(glados_state_draw)
         ARCHI_FSM_DONE(ARCHI_FSM_STACK_SIZE() - glados->entry_stack_size);
     }
 
-    int width, height;
-    plugin_sdl_window_get_texture_size(glados->window, &width, &height);
-
     // step 2: draw background (pixels) using multiple threads
     while (archi_thread_group_execute(glados->thread_group, (archi_thread_group_job_t){
                 .function = glados_draw_background, .data = glados,
-                .num_tasks = width * height},
+                .num_tasks = texture_width * texture_height},
                 (archi_thread_group_callback_t){0},
                 (archi_thread_group_exec_config_t){0}) != 0); // retry if the threads are not ready
 
@@ -429,14 +415,14 @@ ARCHI_FSM_STATE_FUNCTION(glados_state_draw)
     // step 4: blur the window
     while (archi_thread_group_execute(glados->thread_group, (archi_thread_group_job_t){
                 .function = glados_draw_blur, .data = glados,
-                .num_tasks = width * height},
+                .num_tasks = texture_width * texture_height},
                 (archi_thread_group_callback_t){0},
                 (archi_thread_group_exec_config_t){0}) != 0); // retry if the threads are not ready
 
     plugin_sdl_pixel_t *texture = plugin_sdl_window_get_texture_lock(
             glados->window, NULL, NULL, NULL, NULL, NULL);
 
-    memcpy(texture, glados->texture_copy, sizeof(*glados->texture_copy) * width * height);
+    memcpy(texture, glados->texture_copy, sizeof(*glados->texture_copy) * texture_width * texture_height);
 
     // step 5: unlock the texture and render
     if (plugin_sdl_window_unlock_texture_and_render(glados->window) != 0)
@@ -724,6 +710,24 @@ ARCHI_CONTEXT_GET_FUNC(glados_get)
             .type = ARCHI_VALUE_FUNCTION,
         };
     }
+    else if (strcmp(slot, "texture_width") == 0)
+    {
+        *value = (archi_value_t){
+            .ptr = (void*)&texture_width,
+            .size = sizeof(texture_width),
+            .num_of = 1,
+            .type = ARCHI_VALUE_SINT,
+        };
+    }
+    else if (strcmp(slot, "texture_height") == 0)
+    {
+        *value = (archi_value_t){
+            .ptr = (void*)&texture_height,
+            .size = sizeof(texture_height),
+            .num_of = 1,
+            .type = ARCHI_VALUE_SINT,
+        };
+    }
     else
         return ARCHI_ERROR_CONFIG;
 
@@ -747,10 +751,7 @@ ARCHI_CONTEXT_ACT_FUNC(glados_act)
             return ARCHI_ERROR_MISUSE;
 
         // Allocate texture copy
-        int width, height;
-        plugin_sdl_window_get_texture_size(glados->window, &width, &height);
-
-        glados->texture_copy = malloc(sizeof(*glados->texture_copy) * width * height);
+        glados->texture_copy = malloc(sizeof(*glados->texture_copy) * texture_width * texture_height);
         if (glados->texture_copy == NULL)
         {
             archi_log_error(M, "Memory allocation failed.");

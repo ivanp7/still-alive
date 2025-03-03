@@ -9,6 +9,10 @@
 
 #pragma once
 
+// Font size
+#define FONT_WIDTH 6
+#define FONT_HEIGHT 12
+
 // Text area size in characters
 #define TEXT_SIZE_X (35 + 1) // minimum + extra
 #define TEXT_SIZE_Y (23 + 5) // minimum + extra
