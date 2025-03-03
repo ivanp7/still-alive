@@ -596,9 +596,6 @@ ARCHI_CONTEXT_INIT_FUNC(glados_init)
     (void) metadata;
     (void) config;
 
-    if (context == NULL)
-        return ARCHI_ERROR_MISUSE;
-
     glados_data_t *glados = malloc(sizeof(*glados));
     if (glados == NULL)
         return ARCHI_ERROR_ALLOC;
@@ -674,9 +671,6 @@ ARCHI_CONTEXT_SET_FUNC(glados_set)
 {
     (void) metadata;
 
-    if ((context == NULL) || (slot == NULL) || (value == NULL))
-        return ARCHI_ERROR_MISUSE;
-
     glados_data_t *glados = context;
 
 #define CHECK_VALUE() do { \
@@ -711,9 +705,6 @@ ARCHI_CONTEXT_GET_FUNC(glados_get)
 {
     (void) metadata;
 
-    if ((context == NULL) || (slot == NULL) || (value == NULL))
-        return ARCHI_ERROR_MISUSE;
-
     glados_data_t *glados = context;
 
     if (strcmp(slot, "signal_handler") == 0)
@@ -745,9 +736,6 @@ ARCHI_CONTEXT_ACT_FUNC(glados_act)
 {
     (void) metadata;
     (void) params;
-
-    if ((context == NULL) || (action == NULL))
-        return ARCHI_ERROR_MISUSE;
 
     glados_data_t *glados = context;
 
