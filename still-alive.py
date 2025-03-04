@@ -37,7 +37,7 @@ app.register_interface('sdl_window', 'plugin_sdl_window_context_interface', 'lib
 app.register_interface('glados', 'glados_interface', 'still-alive')                   # register the song interface
 
 # Obtain context interfaces
-value_list_interface = app.interface(archi.APP_VALUE_LIST_INTERFACE)
+value_list_interface = app.value_list_interface()
 
 thread_group_interface = app.interface(archi.THREAD_GROUP_INTERFACE)
 sdl_library_interface = app.interface('sdl_library')
@@ -49,12 +49,12 @@ app_signal = app.context(archi.APP_SIGNAL_CONTEXT) # obtain the application sign
 app_fsm = app.context(archi.APP_FSM_CONTEXT) # obtain the application finite state machine
 
 # Create contexts
-thread_group = thread_group_interface( # a group of threads for multicore rendering
-        'thread_group',
+thread_group = thread_group_interface(
+        'thread_group', # a group of threads for multicore rendering
         num_threads=archi.Value(c.c_size_t(NUM_THREADS), type=archi.VALUE_UINT)) # number of threads in the group
 
-sdl_library = sdl_library_interface( # an auxiliary context helping with initializing/finalizing SDL library
-        'sdl_library',
+sdl_library = sdl_library_interface(
+        'sdl_library', # an auxiliary context helping with initializing/finalizing SDL library
         audio=archi.Value(None, type=archi.VALUE_TRUE), # initialize the 'audio' subsystem
         video=archi.Value(None, type=archi.VALUE_TRUE)) # initialize the 'video' subsystem
 
@@ -62,8 +62,8 @@ sdl_library = sdl_library_interface( # an auxiliary context helping with initial
 
 glados = glados_interface('glados') # the GLaDOS context (song context)
 
-sdl_window = value_list_interface( # configuration for a drawable window
-        'config',
+sdl_window = value_list_interface(
+        'config', # configuration for a drawable window
         window_width=archi.Value(c.c_float(WINDOW_WIDTH_SCALE), type=archi.VALUE_FLOAT),   # window frame width scale
         window_height=archi.Value(c.c_float(WINDOW_HEIGHT_SCALE), type=archi.VALUE_FLOAT), # window frame height scale
         window_title=archi.Value(c.create_string_buffer(WINDOW_TITLE.encode()), type=archi.VALUE_STRING)) # window title
