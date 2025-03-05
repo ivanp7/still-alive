@@ -5,6 +5,7 @@
 #include "archi/util/error.def.h" // error codes
 #include "archi/util/print.fun.h" // logging
 
+#include "archi/plugin/files.h" // file context operations
 #include "archi/util/os/signal.fun.h" // signal management
 #include "archi/util/os/threads.fun.h" // concurrent processing
 #include "sdl/window.fun.h" // window operations
@@ -29,16 +30,7 @@
 #include "incbin.h"
 
 // FIXME: use #embed when it's implemented in gcc
-INCBIN(font_psf, "font.psf");
 INCBIN(song_wav, "song.wav");
-
-/*****************************************************************************/
-
-static
-const int texture_width = FONT_WIDTH * SCREEN_SIZE_X;
-
-static
-const int texture_height = FONT_HEIGHT * SCREEN_SIZE_Y;
 
 /*****************************************************************************/
 
@@ -52,6 +44,7 @@ typedef struct glados_data {
     /// external resources ///
     archi_signal_flags_t *signal_flags; // states of signals
 
+    struct archi_plugin_file_context *font_file; // font file
     struct archi_thread_group_context *thread_group; // concurrent processing context
     struct plugin_sdl_window_context *window; // window context
 
@@ -74,6 +67,8 @@ typedef struct glados_data {
     int song_line_buffer_size; // size of current line between linebreaks
 
     plugin_sdl_pixel_t *texture_copy; // copy of the texture buffer
+    int texture_width;  // texture width in pixels
+    int texture_height; // texture height in pixels
 
     // audio
     SDL_AudioSpec wav_spec;
@@ -130,7 +125,7 @@ ARCHI_THREADS_TASK_FUNC(glados_draw_background)
     glados_data_t *glados = data;
 
     // Compute coordinates of the current pixel
-    size_t y = task_idx / texture_width;
+    size_t y = task_idx / glados->texture_width;
 
     // Draw the flickering background
     long elapsed;
@@ -185,6 +180,8 @@ ARCHI_THREADS_TASK_FUNC(glados_draw_blur)
 
     glados_data_t *glados = data;
 
+    int texture_width = glados->texture_width;
+
     // Compute coordinates of the current pixel
     int x = task_idx % texture_width;
     int y = task_idx / texture_width;
@@ -214,7 +211,7 @@ ARCHI_THREADS_TASK_FUNC(glados_draw_blur)
         if (x < (texture_width - 1))
             local[1][2] = texture[y * texture_width + (x + 1)];
     }
-    if (y < (texture_height - 1))
+    if (y < (glados->texture_height - 1))
     {
         if (x > 0)
             local[2][0] = texture[(y + 1) * texture_width + (x - 1)];
@@ -397,6 +394,9 @@ ARCHI_FSM_STATE_FUNCTION(glados_state_draw)
         ARCHI_FSM_SET_CODE(ARCHI_ERROR_OPERATION);
         ARCHI_FSM_DONE(ARCHI_FSM_STACK_SIZE() - glados->entry_stack_size);
     }
+
+    int texture_width = glados->texture_width;
+    int texture_height = glados->texture_height;
 
     // step 2: draw background (pixels) using multiple threads
     while (archi_thread_group_execute(glados->thread_group, (archi_thread_group_job_t){
@@ -591,15 +591,6 @@ ARCHI_CONTEXT_INIT_FUNC(glados_init)
         .signal_handler = {.function = glados_signal_handler, .data = &glados->signal_handler_data},
     };
 
-    // Load the font from the buffer
-    glados->font = plugin_font_psf2_load_from_bytes(binary_font_psf_data,
-            binary_font_psf_size, NULL);
-    if (glados->font == NULL)
-    {
-        archi_log_error(M, "Couldn't load built-in font.");
-        return ARCHI_ERROR_RESOURCE;
-    }
-
     // Load the song
     {
         // Load the WAV from memory
@@ -669,6 +660,11 @@ ARCHI_CONTEXT_SET_FUNC(glados_set)
         CHECK_VALUE();
         glados->signal_flags = value->ptr;
     }
+    else if (strcmp(slot, "font_file") == 0)
+    {
+        CHECK_VALUE();
+        glados->font_file = value->ptr;
+    }
     else if (strcmp(slot, "thread_group") == 0)
     {
         CHECK_VALUE();
@@ -713,8 +709,8 @@ ARCHI_CONTEXT_GET_FUNC(glados_get)
     else if (strcmp(slot, "texture_width") == 0)
     {
         *value = (archi_value_t){
-            .ptr = (void*)&texture_width,
-            .size = sizeof(texture_width),
+            .ptr = (void*)&glados->texture_width,
+            .size = sizeof(glados->texture_width),
             .num_of = 1,
             .type = ARCHI_VALUE_SINT,
         };
@@ -722,8 +718,8 @@ ARCHI_CONTEXT_GET_FUNC(glados_get)
     else if (strcmp(slot, "texture_height") == 0)
     {
         *value = (archi_value_t){
-            .ptr = (void*)&texture_height,
-            .size = sizeof(texture_height),
+            .ptr = (void*)&glados->texture_height,
+            .size = sizeof(glados->texture_height),
             .num_of = 1,
             .type = ARCHI_VALUE_SINT,
         };
@@ -745,13 +741,31 @@ ARCHI_CONTEXT_ACT_FUNC(glados_act)
 
     if (strcmp(action, "init") == 0)
     {
-        if (glados->window == NULL)
+        if (glados->font_file == NULL)
             return ARCHI_ERROR_MISUSE;
-        else if (glados->texture_copy != NULL)
+        else if (glados->font != NULL)
             return ARCHI_ERROR_MISUSE;
 
+        // Load the font from the mapped memory
+        size_t binary_font_psf_size = 0;
+        void *binary_font_psf_data = archi_plugin_file_context_mapped_memory(
+                glados->font_file, &binary_font_psf_size);
+
+        glados->font = plugin_font_psf2_load_from_bytes(binary_font_psf_data,
+                binary_font_psf_size, NULL);
+        if (glados->font == NULL)
+        {
+            archi_log_error(M, "Couldn't load built-in font.");
+            return ARCHI_ERROR_RESOURCE;
+        }
+
+        // Calculate the texture dimensions
+        glados->texture_width = glados->font->header->width * SCREEN_SIZE_X;
+        glados->texture_height = glados->font->header->height * SCREEN_SIZE_Y;
+
         // Allocate texture copy
-        glados->texture_copy = malloc(sizeof(*glados->texture_copy) * texture_width * texture_height);
+        glados->texture_copy = malloc(sizeof(*glados->texture_copy) *
+                glados->texture_width * glados->texture_height);
         if (glados->texture_copy == NULL)
         {
             archi_log_error(M, "Memory allocation failed.");

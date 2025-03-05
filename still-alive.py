@@ -2,11 +2,14 @@
 
 import archi
 import ctypes as c
+import os.path as p
 import sys
 
-##############################
-# Values that can be changed #
-##############################
+#########################
+# Customization options #
+#########################
+
+FONT_FILE = p.join(p.abspath(p.dirname(sys.argv[0])), "font.psf") # pathname of the font file
 
 NUM_THREADS = 4 # number of rendering threads
 
@@ -36,53 +39,53 @@ app.register_interface('sdl_library', 'plugin_sdl_library_interface', 'libsdl') 
 app.register_interface('sdl_window', 'plugin_sdl_window_context_interface', 'libsdl') # register the SDL window context interface
 app.register_interface('glados', 'glados_interface', 'still-alive')                   # register the song interface
 
-# Obtain context interfaces
-value_list_interface = app.value_list_interface()
-
-thread_group_interface = app.interface(archi.THREAD_GROUP_INTERFACE)
-sdl_library_interface = app.interface('sdl_library')
-sdl_window_interface = app.interface('sdl_window')
-glados_interface = app.interface('glados')
-
-# Obtain built-in contexts
-app_signal = app.context(archi.APP_SIGNAL_CONTEXT) # obtain the application signal management context
-app_fsm = app.context(archi.APP_FSM_CONTEXT) # obtain the application finite state machine
-
 # Create contexts
-thread_group = thread_group_interface(
+font_file = app.interface(archi.FILE_INTERFACE)(
+        'font', # a file containing the font
+        pathname=archi.Value(c.create_string_buffer(FONT_FILE.encode()), type=archi.VALUE_STRING),
+        readable=archi.Value(type=archi.VALUE_TRUE))
+
+font_file.map(readable=archi.Value(type=archi.VALUE_TRUE)) # map the file into memory
+
+thread_group = app.interface(archi.THREAD_GROUP_INTERFACE)(
         'thread_group', # a group of threads for multicore rendering
         num_threads=archi.Value(c.c_size_t(NUM_THREADS), type=archi.VALUE_UINT)) # number of threads in the group
 
-sdl_library = sdl_library_interface(
+sdl_library = app.interface('sdl_library')(
         'sdl_library', # an auxiliary context helping with initializing/finalizing SDL library
-        audio=archi.Value(None, type=archi.VALUE_TRUE), # initialize the 'audio' subsystem
-        video=archi.Value(None, type=archi.VALUE_TRUE)) # initialize the 'video' subsystem
+        audio=archi.Value(type=archi.VALUE_TRUE), # initialize the 'audio' subsystem
+        video=archi.Value(type=archi.VALUE_TRUE)) # initialize the 'video' subsystem
 
 # NOTICE: glados and sdl_window must be created after sdl_library
 
-glados = glados_interface('glados') # the GLaDOS context (song context)
+# Create and configure the GLaDOS context
+glados = app.interface('glados')('glados') # the GLaDOS context (song context)
 
-sdl_window = value_list_interface(
+glados.font_file = font_file
+glados.init() # invoke internal GLaDOS initialization that depends on the external pointers
+
+glados.thread_group = thread_group
+
+sdl_window = app.value_list_interface()(
         'config', # configuration for a drawable window
-        window_width=archi.Value(c.c_float(WINDOW_WIDTH_SCALE), type=archi.VALUE_FLOAT),   # window frame width scale
-        window_height=archi.Value(c.c_float(WINDOW_HEIGHT_SCALE), type=archi.VALUE_FLOAT), # window frame height scale
-        window_title=archi.Value(c.create_string_buffer(WINDOW_TITLE.encode()), type=archi.VALUE_STRING)) # window title
+        window_width=archi.Value(c.c_float(WINDOW_WIDTH_SCALE), type=archi.VALUE_FLOAT),
+        window_height=archi.Value(c.c_float(WINDOW_HEIGHT_SCALE), type=archi.VALUE_FLOAT),
+        window_title=archi.Value(c.create_string_buffer(WINDOW_TITLE.encode()), type=archi.VALUE_STRING))
 
 sdl_window.texture_width  = glados.texture_width
 sdl_window.texture_height = glados.texture_height
 
-sdl_window = sdl_window_interface('sdl_window', sdl_window) # a drawable window
+sdl_window = app.interface('sdl_window')('sdl_window', sdl_window) # a drawable window
 
-# Configure the GLaDOS context
-glados.signal_flags = app_signal.signal_flags # provide pointer to the signal flags to GLaDOS
-glados.thread_group = thread_group
 glados.sdl_window = sdl_window
 
-glados.init() # invoke internal GLaDOS initialization that depends on the external pointers
-
 # Configure the built-in contexts
+app_signal = app.context(archi.APP_SIGNAL_CONTEXT) # obtain the application signal management context
+
+glados.signal_flags = app_signal.signal_flags # provide pointer to the signal flags to GLaDOS
 app_signal.signal_handler = glados.signal_handler # install the signal handler from GLaDOS
 
+app_fsm = app.context(archi.APP_FSM_CONTEXT) # obtain the application finite state machine
 app_fsm.entry_state_function = glados.entry_state_function # set entry state function of the application FSM
 app_fsm.entry_state_data     = glados                      # set data of the entry state to GLaDOS itself
 
