@@ -25,10 +25,10 @@ WINDOW_TITLE = "Still Alive"
 app = archi.Application()
 
 # Add signals to the watch set
-app.watch_signal('SIGINT')  # the song handles Ctrl+C
-app.watch_signal('SIGQUIT') # the song handles Ctrl+\
-app.watch_signal('SIGTERM') # the song handles termination
-app.watch_signal('SIGCONT') # the song handles Ctrl+Z
+app.watch_signal('SIGINT')  # the app handles Ctrl+C
+app.watch_signal('SIGQUIT') # the app handles Ctrl+\
+app.watch_signal('SIGTERM') # the app handles termination
+app.watch_signal('SIGCONT') # the app handles Ctrl+Z
 
 # Load plugin libraries
 app.load_library('libsdl', 'libarchi-sdl.so')     # load the plugin for SDL support

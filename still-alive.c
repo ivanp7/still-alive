@@ -591,32 +591,6 @@ ARCHI_CONTEXT_INIT_FUNC(glados_init)
         .signal_handler = {.function = glados_signal_handler, .data = &glados->signal_handler_data},
     };
 
-    // Load the song
-    {
-        // Load the WAV from memory
-        if (SDL_LoadWAV_RW(SDL_RWFromConstMem(binary_song_wav_data, binary_song_wav_size),
-                    1, &glados->wav_spec, &glados->wav_buffer, &glados->wav_length) == NULL)
-        {
-            archi_log_error(M, "Couldn't load built-in .wav file.");
-            return ARCHI_ERROR_RESOURCE;
-        }
-
-        // Open an audio device
-        glados->snd_device_id = SDL_OpenAudioDevice(NULL, 0, &glados->wav_spec, NULL, 0);
-        if (glados->snd_device_id == 0)
-        {
-            archi_log_error(M, "Couldn't open audio device.");
-            return ARCHI_ERROR_RESOURCE;
-        }
-
-        // Queue the song to play
-        if (SDL_QueueAudio(glados->snd_device_id, glados->wav_buffer, glados->wav_length) < 0)
-        {
-            archi_log_error(M, "Couldn't queue WAV to play.");
-            return ARCHI_ERROR_RESOURCE;
-        }
-    }
-
     *context = glados;
     return 0;
 }
@@ -770,6 +744,29 @@ ARCHI_CONTEXT_ACT_FUNC(glados_act)
         {
             archi_log_error(M, "Memory allocation failed.");
             return ARCHI_ERROR_ALLOC;
+        }
+
+        // Load the WAV from memory
+        if (SDL_LoadWAV_RW(SDL_RWFromConstMem(binary_song_wav_data, binary_song_wav_size),
+                    1, &glados->wav_spec, &glados->wav_buffer, &glados->wav_length) == NULL)
+        {
+            archi_log_error(M, "Couldn't load built-in .wav file.");
+            return ARCHI_ERROR_RESOURCE;
+        }
+
+        // Open an audio device
+        glados->snd_device_id = SDL_OpenAudioDevice(NULL, 0, &glados->wav_spec, NULL, 0);
+        if (glados->snd_device_id == 0)
+        {
+            archi_log_error(M, "Couldn't open audio device.");
+            return ARCHI_ERROR_RESOURCE;
+        }
+
+        // Queue the song to play
+        if (SDL_QueueAudio(glados->snd_device_id, glados->wav_buffer, glados->wav_length) < 0)
+        {
+            archi_log_error(M, "Couldn't queue WAV to play.");
+            return ARCHI_ERROR_RESOURCE;
         }
     }
     else
