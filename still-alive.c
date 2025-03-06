@@ -5,7 +5,6 @@
 #include "archi/util/error.def.h" // error codes
 #include "archi/util/print.fun.h" // logging
 
-#include "archi/plugin/files.h" // file context operations
 #include "archi/util/os/signal.fun.h" // signal management
 #include "archi/util/os/threads.fun.h" // concurrent processing
 #include "sdl/window.fun.h" // window operations
@@ -44,7 +43,7 @@ typedef struct glados_data {
     /// external resources ///
     archi_signal_flags_t *signal_flags; // states of signals
 
-    struct archi_plugin_file_context *font_file; // font file
+    struct plugin_font_psf2 *font; // text font
     struct archi_thread_group_context *thread_group; // concurrent processing context
     struct plugin_sdl_window_context *window; // window context
 
@@ -52,7 +51,6 @@ typedef struct glados_data {
     struct glados_signal_handler_data signal_handler_data; // signal handler data
     archi_signal_handler_t signal_handler; // signal handler
 
-    struct plugin_font_psf2 *font; // text font
 
     size_t entry_stack_size; // FSM stack size at the entry state
 
@@ -609,9 +607,6 @@ ARCHI_CONTEXT_FINAL_FUNC(glados_final)
     if (glados->wav_buffer != NULL)
         SDL_FreeWAV(glados->wav_buffer);
 
-    if (glados->font != NULL)
-        plugin_font_psf2_unload(glados->font);
-
     free(glados->texture_copy);
     free(glados);
 }
@@ -634,10 +629,35 @@ ARCHI_CONTEXT_SET_FUNC(glados_set)
         CHECK_VALUE();
         glados->signal_flags = value->ptr;
     }
-    else if (strcmp(slot, "font_file") == 0)
+    else if (strcmp(slot, "font") == 0)
     {
         CHECK_VALUE();
-        glados->font_file = value->ptr;
+        glados->font = value->ptr;
+
+        if (glados->font != NULL)
+        {
+            glados->texture_width = glados->font->header->width * SCREEN_SIZE_X;
+            glados->texture_height = glados->font->header->height * SCREEN_SIZE_Y;
+
+            // Allocate texture copy
+            plugin_sdl_pixel_t *new_texture_copy = realloc(glados->texture_copy,
+                    sizeof(*glados->texture_copy) * glados->texture_width * glados->texture_height);
+            if (new_texture_copy == NULL)
+            {
+                archi_log_error(M, "Couldn't allocate memory for texture copy.");
+                return ARCHI_ERROR_ALLOC;
+            }
+
+            glados->texture_copy = new_texture_copy;
+        }
+        else
+        {
+            glados->texture_width = 0;
+            glados->texture_height = 0;
+
+            free(glados->texture_copy);
+            glados->texture_copy = NULL;
+        }
     }
     else if (strcmp(slot, "thread_group") == 0)
     {
@@ -713,39 +733,8 @@ ARCHI_CONTEXT_ACT_FUNC(glados_act)
 
     glados_data_t *glados = context;
 
-    if (strcmp(action, "init") == 0)
+    if (strcmp(action, "init_sound") == 0)
     {
-        if (glados->font_file == NULL)
-            return ARCHI_ERROR_MISUSE;
-        else if (glados->font != NULL)
-            return ARCHI_ERROR_MISUSE;
-
-        // Load the font from the mapped memory
-        size_t binary_font_psf_size = 0;
-        void *binary_font_psf_data = archi_plugin_file_context_mapped_memory(
-                glados->font_file, &binary_font_psf_size);
-
-        glados->font = plugin_font_psf2_load_from_bytes(binary_font_psf_data,
-                binary_font_psf_size, NULL);
-        if (glados->font == NULL)
-        {
-            archi_log_error(M, "Couldn't load built-in font.");
-            return ARCHI_ERROR_RESOURCE;
-        }
-
-        // Calculate the texture dimensions
-        glados->texture_width = glados->font->header->width * SCREEN_SIZE_X;
-        glados->texture_height = glados->font->header->height * SCREEN_SIZE_Y;
-
-        // Allocate texture copy
-        glados->texture_copy = malloc(sizeof(*glados->texture_copy) *
-                glados->texture_width * glados->texture_height);
-        if (glados->texture_copy == NULL)
-        {
-            archi_log_error(M, "Memory allocation failed.");
-            return ARCHI_ERROR_ALLOC;
-        }
-
         // Load the WAV from memory
         if (SDL_LoadWAV_RW(SDL_RWFromConstMem(binary_song_wav_data, binary_song_wav_size),
                     1, &glados->wav_spec, &glados->wav_buffer, &glados->wav_length) == NULL)
