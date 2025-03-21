@@ -51,9 +51,6 @@ typedef struct glados_data {
     struct glados_signal_handler_data signal_handler_data; // signal handler data
     archi_signal_handler_t signal_handler; // signal handler
 
-
-    size_t entry_stack_size; // FSM stack size at the entry state
-
     char screen[SCREEN_SIZE_Y][SCREEN_SIZE_X]; // screen characters
     int cursor_x, cursor_y; // cursor coordinates
 
@@ -275,22 +272,18 @@ ARCHI_FSM_STATE_FUNCTION(glados_state_sing);
 static
 ARCHI_FSM_STATE_FUNCTION(glados_state_init)
 {
-    glados_data_t *glados = ARCHI_FSM_CURRENT_DATA(glados_data_t);
-
-    glados->entry_stack_size = ARCHI_FSM_STACK_SIZE();
+    glados_data_t *glados = ARCHI_FSM_CURRENT_DATA(glados_data_t*);
 
     // Check if everything is available and correct
     if (glados->thread_group == NULL)
     {
         archi_log_error(M, "Concurrent processing context is unavailable.");
-        ARCHI_FSM_SET_CODE(ARCHI_ERROR_RESOURCE);
-        ARCHI_FSM_DONE(0);
+        ARCHI_FSM_ABORT(ARCHI_ERROR_UNAVAIL);
     }
     else if (glados->window == NULL)
     {
         archi_log_error(M, "Window is unavailable.");
-        ARCHI_FSM_SET_CODE(ARCHI_ERROR_RESOURCE);
-        ARCHI_FSM_DONE(0);
+        ARCHI_FSM_ABORT(ARCHI_ERROR_UNAVAIL);
     }
 
     // Initialize the screen
@@ -337,13 +330,13 @@ ARCHI_FSM_STATE_FUNCTION(glados_state_init)
 static
 ARCHI_FSM_STATE_FUNCTION(glados_state_loop)
 {
-    glados_data_t *glados = ARCHI_FSM_CURRENT_DATA(glados_data_t);
+    glados_data_t *glados = ARCHI_FSM_CURRENT_DATA(glados_data_t*);
 
     // Check signal states
     if (ARCHI_SIGNAL_IS_FLAG_SET(glados->signal_flags->f_SIGINT))
     {
         archi_log_info(M, "Caught SIGINT.");
-        ARCHI_FSM_DONE(ARCHI_FSM_STACK_SIZE() - glados->entry_stack_size);
+        ARCHI_FSM_FINISH(1);
     }
     else if (ARCHI_SIGNAL_IS_FLAG_SET(glados->signal_flags->f_SIGTERM))
     {
@@ -364,7 +357,7 @@ ARCHI_FSM_STATE_FUNCTION(glados_state_loop)
         // Exit when the window is closed or <Escape> is pressed
         if ((event.type == SDL_QUIT) ||
                 ((event.type == SDL_KEYDOWN) && (event.key.keysym.sym == SDLK_ESCAPE)))
-            ARCHI_FSM_DONE(ARCHI_FSM_STACK_SIZE() - glados->entry_stack_size);
+            ARCHI_FSM_FINISH(1);
     }
 
     // Prevent excess CPU usage
@@ -381,7 +374,7 @@ ARCHI_FSM_STATE_FUNCTION(glados_state_loop)
 static
 ARCHI_FSM_STATE_FUNCTION(glados_state_draw)
 {
-    glados_data_t *glados = ARCHI_FSM_CURRENT_DATA(glados_data_t);
+    glados_data_t *glados = ARCHI_FSM_CURRENT_DATA(glados_data_t*);
 
     // Update the window texture
 
@@ -389,8 +382,7 @@ ARCHI_FSM_STATE_FUNCTION(glados_state_draw)
     if (plugin_sdl_window_lock_whole_texture(glados->window) != 0)
     {
         archi_log_error(M, "Couldn't lock the window texture.");
-        ARCHI_FSM_SET_CODE(ARCHI_ERROR_OPERATION);
-        ARCHI_FSM_DONE(ARCHI_FSM_STACK_SIZE() - glados->entry_stack_size);
+        ARCHI_FSM_ABORT(ARCHI_ERROR_OPERATION);
     }
 
     int texture_width = glados->texture_width;
@@ -426,8 +418,7 @@ ARCHI_FSM_STATE_FUNCTION(glados_state_draw)
     if (plugin_sdl_window_unlock_texture_and_render(glados->window) != 0)
     {
         archi_log_error(M, "Couldn't unlock the window texture and render it.");
-        ARCHI_FSM_SET_CODE(ARCHI_ERROR_OPERATION);
-        ARCHI_FSM_DONE(ARCHI_FSM_STACK_SIZE() - glados->entry_stack_size);
+        ARCHI_FSM_ABORT(ARCHI_ERROR_OPERATION);
     }
 }
 
@@ -435,7 +426,7 @@ ARCHI_FSM_STATE_FUNCTION(glados_state_draw)
 static
 ARCHI_FSM_STATE_FUNCTION(glados_state_sing)
 {
-    glados_data_t *glados = ARCHI_FSM_CURRENT_DATA(glados_data_t);
+    glados_data_t *glados = ARCHI_FSM_CURRENT_DATA(glados_data_t*);
 
     // Get current elapsed time
     long elapsed;
@@ -461,7 +452,7 @@ ARCHI_FSM_STATE_FUNCTION(glados_state_sing)
         if (elapsed >= current_line->end)
         {
             // exit now
-            ARCHI_FSM_DONE(ARCHI_FSM_STACK_SIZE() - glados->entry_stack_size);
+            ARCHI_FSM_FINISH(1);
         }
         else
             return;
@@ -740,7 +731,7 @@ ARCHI_CONTEXT_ACT_FUNC(glados_act)
                     1, &glados->wav_spec, &glados->wav_buffer, &glados->wav_length) == NULL)
         {
             archi_log_error(M, "Couldn't load built-in .wav file.");
-            return ARCHI_ERROR_RESOURCE;
+            return ARCHI_ERROR_OPERATION;
         }
 
         // Open an audio device
@@ -748,14 +739,14 @@ ARCHI_CONTEXT_ACT_FUNC(glados_act)
         if (glados->snd_device_id == 0)
         {
             archi_log_error(M, "Couldn't open audio device.");
-            return ARCHI_ERROR_RESOURCE;
+            return ARCHI_ERROR_OPERATION;
         }
 
         // Queue the song to play
         if (SDL_QueueAudio(glados->snd_device_id, glados->wav_buffer, glados->wav_length) < 0)
         {
             archi_log_error(M, "Couldn't queue WAV to play.");
-            return ARCHI_ERROR_RESOURCE;
+            return ARCHI_ERROR_OPERATION;
         }
     }
     else
